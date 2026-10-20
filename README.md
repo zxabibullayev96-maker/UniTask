@@ -142,6 +142,6 @@ Konteyner ishga tushgach, `http://localhost:3000` manzilida ochiladi.
 5. **FR-3.3 Xatoliklarni boshqarish:** Tarmoq uzilsa yoki OpenAI API band bo'lsa tizim yiqilmaydi va aqlli xulosa shakllantiradi.
 
 ---
+## 👨‍💻 Muallif
 
-## 👨‍💻 Mualliflar
-**"UniTask AI" EdTech Jamoasi** — O'zbekiston Oliy Ta'lim Tizimida Sun'iy Intellektni Joriy Etish Loyihasi.
+**Xabibullayev Zikirillo** — UniTask AI loyihasi muallifi.
