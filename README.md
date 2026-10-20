@@ -144,4 +144,4 @@ Konteyner ishga tushgach, `http://localhost:3000` manzilida ochiladi.
 ---
 ## 👨‍💻 Muallif
 
-**Xabibullayev Zikirillo** — UniTask AI loyihasi muallifi.
+**Xabibullayev Zikirillo Muxammadnosir o'g'li** — UniTask AI loyihasi muallifi.
