@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UniTask AI — Talabalar Mustaqil Ta'limini Avtomatlashtirilgan AI Baholash Platformasi</title>
+  
+  <!-- Favicon -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
+  
+  <!-- Google Fonts: Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="/css/style.css">
+  <link rel="stylesheet" href="/css/components.css">
+</head>
+<body>
+
+  <!-- App Wrapper -->
+  <div id="app-container">
+    
+    <!-- Asosiy Navbar -->
+    <header class="main-header">
+      <div class="header-content">
+        <a class="logo-area" onclick="window.location.hash = '#/'; App.router();">
+          <div class="logo-icon">
+            <i class="fas fa-brain"></i>
+          </div>
+          <div class="logo-text">
+            <h1>UniTask <span class="logo-badge">AI EdTech</span></h1>
+            <p>Mustaqil ta'limni intellektual baholash</p>
+          </div>
+        </a>
+
+        <!-- Foydalanuvchi qismi / Kirish tugmalari -->
+        <nav class="nav-actions" id="nav-actions">
+          <!-- JS dinamik to'ldiradi -->
+        </nav>
+      </div>
+    </header>
+
+    <!-- Asosiy Kontent Maydoni -->
+    <main class="main-viewport" id="main-viewport">
+      <!-- SPA dinamik render qiladi -->
+      <div style="text-align: center; padding: 4rem;">
+        <i class="fas fa-spinner fa-spin fa-3x" style="color: var(--primary);"></i>
+        <p style="margin-top: 1rem; color: var(--text-muted);">Yuklanmoqda...</p>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="main-footer">
+      <div class="footer-content">
+        <div>
+          <strong>UniTask AI Platformasi</strong> &bull; Oliy ta'lim muassasalari talabalari mustaqil ta'lim topshiriqlarini tahlil qilish tizimi
+        </div>
+        <div class="footer-badge">
+          <i class="fas fa-shield-alt"></i> OpenAI GPT-4o-mini &bull; SQLite3 &bull; Express.js
+        </div>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Reusable Modal Dialog -->
+  <div class="modal-overlay" id="modal-overlay" onclick="if(event.target === this) AppUI.closeModal();">
+    <div class="modal-container" id="modal-container">
+      <div class="modal-header">
+        <h3 class="card-title" id="modal-title">Sarlavha</h3>
+        <button class="toast-close" onclick="AppUI.closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-body">
+        <!-- Modal kontenti -->
+      </div>
+      <div class="modal-footer" id="modal-footer">
+        <!-- Modal tugmalari -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Xabarnomalar Konteyneri -->
+  <div id="toast-container"></div>
+
+  <!-- JavaScript Fayllari (SPA Architecture) -->
+  <script src="/js/state.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/views/authView.js"></script>
+  <script src="/js/views/adminView.js"></script>
+  <script src="/js/views/teacherView.js"></script>
+  <script src="/js/views/studentView.js"></script>
+  <script src="/js/app.js"></script>
+
+</body>
+</html>

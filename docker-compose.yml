@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  unitask-app:
+    build: .
+    container_name: unitask_ai_app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - NODE_ENV=production
+      - JWT_SECRET=unitask_secret_jwt_key_2025_secure_edtech_platform
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - OPENAI_MODEL=gpt-4o-mini
+    volumes:
+      - ./unitask.db:/usr/src/app/unitask.db
