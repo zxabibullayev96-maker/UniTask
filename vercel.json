@@ -1,0 +1,11 @@
+
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "public",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://unitask-4xce.onrender.com/api/:path*"
+    }
+  ]
+}
