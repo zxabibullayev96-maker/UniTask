@@ -35,7 +35,10 @@ const Api = {
       }
 
       if (!response.ok) {
-        throw new Error(data.message || 'Xatolik yuz berdi');
+        const error = new Error(data.message || 'Xatolik yuz berdi');
+        error.data = data;
+        error.status = response.status;
+        throw error;
       }
 
       return data;
@@ -61,18 +64,43 @@ const Api = {
   // Guruhlar
   groups: {
     getAll: () => Api.request('/groups'),
+    getById: (id) => Api.request(`/groups/${id}`),
     create: (data) => Api.request('/groups', {
       method: 'POST',
       body: JSON.stringify(data)
     }),
-    delete: (id) => Api.request(`/groups/${id}`, {
+    update: (id, data) => Api.request(`/groups/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    }),
+    assignTeacher: (groupId, teacherId) => Api.request(`/groups/${groupId}/teachers`, {
+      method: 'POST',
+      body: JSON.stringify({ teacher_id: teacherId })
+    }),
+    removeTeacher: (groupId, teacherId) => Api.request(`/groups/${groupId}/teachers/${teacherId}`, {
+      method: 'DELETE'
+    }),
+    delete: (id, force = false) => Api.request(`/groups/${id}${force ? '?force=true' : ''}`, {
       method: 'DELETE'
     })
   },
 
   // Foydalanuvchilar (Admin)
   users: {
-    getAll: (role) => Api.request(`/users${role ? `?role=${role}` : ''}`),
+    getAll: (paramsOrRole) => {
+      let queryString = '';
+      if (typeof paramsOrRole === 'string') {
+        queryString = `?role=${paramsOrRole}`;
+      } else if (typeof paramsOrRole === 'object' && paramsOrRole !== null) {
+        const q = new URLSearchParams();
+        Object.entries(paramsOrRole).forEach(([k, v]) => {
+          if (v !== undefined && v !== null && v !== '') q.append(k, v);
+        });
+        queryString = `?${q.toString()}`;
+      }
+      return Api.request(`/users${queryString}`);
+    },
+    getById: (id) => Api.request(`/users/${id}`),
     create: (data) => Api.request('/users', {
       method: 'POST',
       body: JSON.stringify(data)
@@ -81,7 +109,15 @@ const Api = {
       method: 'PUT',
       body: JSON.stringify(data)
     }),
-    delete: (id) => Api.request(`/users/${id}`, {
+    assignGroups: (id, groupIds) => Api.request(`/users/${id}/groups`, {
+      method: 'POST',
+      body: JSON.stringify({ group_ids: groupIds })
+    }),
+    toggleStatus: (id, isActive) => Api.request(`/users/${id}/status`, {
+      method: 'PATCH',
+      body: JSON.stringify({ is_active: isActive })
+    }),
+    delete: (id, force = false) => Api.request(`/users/${id}${force ? '?force=true' : ''}`, {
       method: 'DELETE'
     }),
     getStats: () => Api.request('/users/stats')
@@ -109,18 +145,38 @@ const Api = {
       method: 'POST',
       body: formData
     }),
-    delete: (id) => Api.request(`/assignments/${id}`, {
+    delete: (id, force = false) => Api.request(`/assignments/${id}${force ? '?force=true' : ''}`, {
       method: 'DELETE'
     })
   },
 
   // Javoblar va AI Baholash
   submissions: {
-    submitAnswer: (data) => Api.request('/submissions', {
+    submitAnswer: (data) => {
+      const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+      return Api.request('/submissions', {
+        method: 'POST',
+        body: isFormData ? data : JSON.stringify(data)
+      });
+    },
+    startSession: (assignmentId) => Api.request('/submissions/start', {
+      method: 'POST',
+      body: JSON.stringify({ assignment_id: assignmentId })
+    }),
+    saveDraft: (data) => Api.request('/submissions/draft', {
       method: 'POST',
       body: JSON.stringify(data)
     }),
+    getActiveSession: (assignmentId) => Api.request(`/submissions/session/${assignmentId}`),
     getMy: () => Api.request('/submissions/my'),
+    getAll: (params = {}) => {
+      const q = new URLSearchParams();
+      Object.entries(params).forEach(([k, v]) => {
+        if (v !== undefined && v !== null && v !== '') q.append(k, v);
+      });
+      const qs = q.toString() ? `?${q.toString()}` : '';
+      return Api.request(`/submissions/all${qs}`);
+    },
     getByAssignment: (assignmentId) => Api.request(`/submissions/assignment/${assignmentId}`),
     getById: (id) => Api.request(`/submissions/${id}`),
     grade: (id, gradeData) => Api.request(`/submissions/${id}/grade`, {
@@ -132,7 +188,26 @@ const Api = {
     }),
     allowResubmit: (id) => Api.request(`/submissions/${id}`, {
       method: 'DELETE'
-    })
+    }),
+    async downloadFile(id, fileName = 'fayl') {
+      const token = AppState.token;
+      const res = await fetch(`/api/submissions/${id}/file`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.message || 'Faylni yuklab olishda xatolik yuz berdi');
+      }
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    }
   },
 
   // Tizim holati

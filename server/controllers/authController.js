@@ -19,7 +19,7 @@ async function register(req, res) {
       return res.status(400).json({ success: false, message: 'Noto\'g\'ri foydalanuvchi roli tanlangan.' });
     }
 
-    // Guruhni aniqlash (FR-1.2: Talaba uchun guruh majburiy)
+    // Guruhni aniqlash
     let assignedGroupId = null;
     if (role === 'student') {
       const gInput = group_id || group_code;
@@ -27,21 +27,17 @@ async function register(req, res) {
         return res.status(400).json({ success: false, message: 'Talaba uchun akademik guruh yoki guruh kodi kiritilishi shart.' });
       }
 
-      // Agar raqamli ID bo'lsa
       if (!isNaN(gInput) && typeof gInput === 'number') {
         const found = await db.getAsync('SELECT id FROM groups WHERE id = ?', [gInput]);
         if (found) assignedGroupId = found.id;
       }
 
-      // Agar topilmagan bo'lsa yoki string bo'lsa
       if (!assignedGroupId) {
         const gName = String(gInput).trim();
-        // Guruh nomi bo'yicha qidirish
         let foundGroup = await db.getAsync('SELECT id FROM groups WHERE LOWER(name) = LOWER(?) OR LOWER(name) LIKE LOWER(?)', [gName, `%${gName}%`]);
         if (foundGroup) {
           assignedGroupId = foundGroup.id;
         } else {
-          // Guruh mavjud bo'lmasa avtomatik yaratish
           const newG = await db.runAsync('INSERT INTO groups (name) VALUES (?)', [`${gName} Guruh`]);
           assignedGroupId = newG.lastID;
         }
@@ -58,12 +54,12 @@ async function register(req, res) {
     const hashedPassword = await bcrypt.hash(password, salt);
 
     const result = await db.runAsync(
-      'INSERT INTO users (name, email, password, role, group_id) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO users (name, email, password, role, group_id, is_active) VALUES (?, ?, ?, ?, ?, 1)',
       [fullName, cleanEmail, hashedPassword, role, assignedGroupId]
     );
 
     const newUser = await db.getAsync(
-      `SELECT u.id, u.name, u.email, u.role, u.group_id, g.name as group_name 
+      `SELECT u.id, u.name, u.email, u.role, u.group_id, u.is_active, g.name as group_name 
        FROM users u 
        LEFT JOIN groups g ON u.group_id = g.id 
        WHERE u.id = ?`,
@@ -109,6 +105,14 @@ async function login(req, res) {
       return res.status(401).json({ success: false, message: 'Email yoki parol noto\'g\'ri.' });
     }
 
+    // Foydalanuvchi faolligini tekshirish
+    if (user.is_active === 0) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Ushbu akkaunt ma\'muriyat tomonidan faolsizlantirilgan. Iltimos, ma\'muriyatga murojaat qiling.' 
+      });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: 'Email yoki parol noto\'g\'ri.' });
@@ -126,7 +130,8 @@ async function login(req, res) {
       email: user.email,
       role: user.role,
       group_id: user.group_id,
-      group_name: user.group_name
+      group_name: user.group_name,
+      is_active: user.is_active
     };
 
     return res.json({
@@ -144,7 +149,7 @@ async function login(req, res) {
 async function getMe(req, res) {
   try {
     const user = await db.getAsync(
-      `SELECT u.id, u.name, u.email, u.role, u.group_id, g.name as group_name 
+      `SELECT u.id, u.name, u.email, u.role, u.group_id, u.is_active, g.name as group_name 
        FROM users u 
        LEFT JOIN groups g ON u.group_id = g.id 
        WHERE u.id = ?`,
@@ -153,6 +158,10 @@ async function getMe(req, res) {
 
     if (!user) {
       return res.status(404).json({ success: false, message: 'Foydalanuvchi topilmadi.' });
+    }
+
+    if (user.is_active === 0) {
+      return res.status(403).json({ success: false, message: 'Akkaunt faolsizlantirilgan.' });
     }
 
     return res.json({ success: true, user });

@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
-    "seed": "node server/config/seed.js"
+    "seed": "node server/config/seed.js",
+    "test": "node test_stage6_audit.js"
   },
   "keywords": ["edtech", "ai", "openai", "grading", "education"],
   "author": "UniTask Team",

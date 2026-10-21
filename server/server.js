@@ -18,8 +18,29 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Statik fayllar (Frontend SPA & Yuklangan fayllar)
+// Statik fayllar (Frontend SPA)
 app.use(express.static(path.join(__dirname, '../public')));
+
+// Xavfsizlik: Talabalar yuklagan shaxsiy javob fayllari (/uploads/submissions) ochiq statik berilmaydi
+// Faqat himoyalangan /api/submissions/:id/file marshruti orqali yuklab olinadi
+app.use((req, res, next) => {
+  try {
+    const normalizedPath = decodeURIComponent(req.path).replace(/\\/g, '/').toLowerCase();
+    if (normalizedPath.startsWith('/uploads/submissions')) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Talabalar javoblari xavfsizlik maqsadida ochiq havola orqali ko\'rsatilmaydi.' 
+      });
+    }
+  } catch (e) {
+    // Agar URI decoding xatosi bo'lsa xavfsiz holda rad etish
+    if (req.path.toLowerCase().includes('submissions')) {
+      return res.status(403).json({ success: false, message: 'Ruxsatsiz so\'rov.' });
+    }
+  }
+  next();
+});
+// O'quv materiallari statik tarzda taqdim etiladi
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // Tizim holati (Health check & AI status)
@@ -48,12 +69,21 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, '../public/index.html'));
 });
 
-// Xatoliklarni qayta ishlash middleware
+// Xatoliklarni qayta ishlash middleware (Multer va umumiy xatolar)
 app.use((err, req, res, next) => {
-  console.error('Server xatoligi:', err.stack);
+  console.error('Server xatoligi:', err.message || err);
+  if (err.name === 'MulterError') {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ success: false, message: 'Fayl hajmi ruxsat etilgan limitdan (50MB) katta.' });
+    }
+    return res.status(400).json({ success: false, message: 'Fayl yuklashda xatolik: ' + err.message });
+  }
+  if (err.message && err.message.includes('Faqat PDF, DOC, DOCX, PPTX')) {
+    return res.status(400).json({ success: false, message: err.message });
+  }
   res.status(500).json({
     success: false,
-    message: 'Serverda kutilmagan xatolik yuz berdi.'
+    message: err.message || 'Serverda kutilmagan xatolik yuz berdi.'
   });
 });
 
@@ -74,4 +104,9 @@ async function startServer() {
   }
 }
 
-startServer();
+// Faqat to'g'ridan-to'g'ri ishga tushirilganda listen qiladi (testlar uchun export qilinadi)
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = { app, startServer };
