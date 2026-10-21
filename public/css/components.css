@@ -690,3 +690,232 @@ textarea.form-control {
   max-width: 400px;
   margin: 0 auto 1.25rem;
 }
+
+/* ==========================================================================
+   Dinamik Savollar Konstruktori (Question Builder & Student Quiz Styles)
+   ========================================================================== */
+
+/* Savollar xulosasi paneli */
+.questions-summary-bar {
+  background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+  border: 1px solid #c7d2fe;
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.summary-stat-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--text-main);
+}
+
+.summary-stat-item strong {
+  color: var(--primary);
+  font-size: 1.05rem;
+}
+
+/* Savollar konstruktor kartasi */
+.builder-question-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: var(--transition);
+  position: relative;
+}
+
+.builder-question-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.07);
+}
+
+.builder-question-card.border-closed {
+  border-left: 4px solid #6366f1;
+}
+
+.builder-question-card.border-open {
+  border-left: 4px solid #0ea5e9;
+}
+
+.builder-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.builder-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: var(--radius-full);
+  font-size: 0.775rem;
+  font-weight: 700;
+}
+
+.builder-badge-closed {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.builder-badge-open {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.builder-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+/* Variantlar qatori */
+.option-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.option-key-label {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--bg-alt);
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.option-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm);
+  background: #f1f5f9;
+  color: var(--text-muted);
+  user-select: none;
+  white-space: nowrap;
+}
+
+.option-radio-label.correct {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.secret-teacher-note {
+  background: #fffbeb;
+  border: 1px dashed #f59e0b;
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  font-size: 0.825rem;
+  color: #92400e;
+  margin-top: 0.5rem;
+}
+
+/* Talaba Test Yechish Interfeysi */
+.quiz-question-box {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.quiz-question-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.75rem;
+}
+
+.quiz-option-item {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.85rem 1.15rem;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.65rem;
+  cursor: pointer;
+  transition: var(--transition);
+  background: #fafafa;
+}
+
+.quiz-option-item:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.quiz-option-item.selected {
+  background: #eef2ff;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 1px var(--primary);
+}
+
+.quiz-option-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  background: white;
+  transition: var(--transition);
+}
+
+.quiz-option-item.selected .quiz-option-circle {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: white;
+}
+
+/* Baholash oynasidagi savollar tafsiloti */
+.grade-answer-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+.grade-answer-card.correct-card {
+  border-left: 4px solid var(--success);
+}
+
+.grade-answer-card.incorrect-card {
+  border-left: 4px solid var(--danger);
+}
+
+.grade-answer-card.open-card {
+  border-left: 4px solid var(--primary);
+}

@@ -90,6 +90,21 @@ async function initDatabase() {
     if (!colNames.includes('file_size')) {
       await db.runAsync("ALTER TABLE assignments ADD COLUMN file_size INTEGER DEFAULT NULL");
     }
+    if (!colNames.includes('subject')) {
+      await db.runAsync("ALTER TABLE assignments ADD COLUMN subject TEXT DEFAULT NULL");
+    }
+    if (!colNames.includes('instructions')) {
+      await db.runAsync("ALTER TABLE assignments ADD COLUMN instructions TEXT DEFAULT NULL");
+    }
+    if (!colNames.includes('due_date')) {
+      await db.runAsync("ALTER TABLE assignments ADD COLUMN due_date DATETIME DEFAULT NULL");
+    }
+    if (!colNames.includes('total_points')) {
+      await db.runAsync("ALTER TABLE assignments ADD COLUMN total_points REAL DEFAULT 100");
+    }
+    if (!colNames.includes('has_dynamic_questions')) {
+      await db.runAsync("ALTER TABLE assignments ADD COLUMN has_dynamic_questions INTEGER DEFAULT 0");
+    }
   } catch (migErr) {
     console.warn("Assignments migratsiyasida ogohlantirish:", migErr.message);
   }
@@ -110,6 +125,64 @@ async function initDatabase() {
       submitted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       graded_at DATETIME DEFAULT NULL,
       UNIQUE(assignment_id, student_id)
+    );
+  `);
+
+  // Submissions migratsiyasi (yangi ustunlar)
+  try {
+    const subInfo = await db.allAsync("PRAGMA table_info(submissions)");
+    const subCols = subInfo.map(c => c.name);
+    if (!subCols.includes('total_score')) {
+      await db.runAsync("ALTER TABLE submissions ADD COLUMN total_score REAL DEFAULT NULL");
+    }
+    if (!subCols.includes('max_score')) {
+      await db.runAsync("ALTER TABLE submissions ADD COLUMN max_score REAL DEFAULT NULL");
+    }
+  } catch (subMigErr) {
+    console.warn("Submissions migratsiyasida ogohlantirish:", subMigErr.message);
+  }
+
+  // 5. assignment_questions jadvali (Dinamik ochiq va yopiq savollar)
+  await db.runAsync(`
+    CREATE TABLE IF NOT EXISTS assignment_questions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      assignment_id INTEGER NOT NULL REFERENCES assignments(id) ON DELETE CASCADE,
+      question_type TEXT NOT NULL CHECK(question_type IN ('closed', 'open')),
+      question_text TEXT NOT NULL,
+      points REAL NOT NULL DEFAULT 10,
+      order_index INTEGER NOT NULL DEFAULT 0,
+      instruction TEXT DEFAULT NULL,
+      sample_answer TEXT DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+  `);
+
+  // 6. question_options jadvali (Yopiq test variantlari)
+  await db.runAsync(`
+    CREATE TABLE IF NOT EXISTS question_options (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      question_id INTEGER NOT NULL REFERENCES assignment_questions(id) ON DELETE CASCADE,
+      option_key TEXT NOT NULL,
+      option_text TEXT NOT NULL,
+      is_correct INTEGER NOT NULL DEFAULT 0 CHECK(is_correct IN (0, 1)),
+      order_index INTEGER NOT NULL DEFAULT 0
+    );
+  `);
+
+  // 7. submission_answers jadvali (Talaba javoblari va har bir savol bahosi)
+  await db.runAsync(`
+    CREATE TABLE IF NOT EXISTS submission_answers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      submission_id INTEGER NOT NULL REFERENCES submissions(id) ON DELETE CASCADE,
+      question_id INTEGER NOT NULL REFERENCES assignment_questions(id) ON DELETE CASCADE,
+      selected_option_id INTEGER DEFAULT NULL REFERENCES question_options(id) ON DELETE SET NULL,
+      answer_text TEXT DEFAULT NULL,
+      is_correct INTEGER DEFAULT NULL,
+      ai_score REAL DEFAULT NULL,
+      ai_feedback TEXT DEFAULT NULL,
+      teacher_score REAL DEFAULT NULL,
+      teacher_feedback TEXT DEFAULT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
   `);
 

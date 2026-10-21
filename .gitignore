@@ -8,3 +8,5 @@ unitask.db-journal
 uploads/*
 !uploads/.gitkeep
 .DS_Store
+
+unitask.db.bak

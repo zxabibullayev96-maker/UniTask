@@ -98,6 +98,13 @@ const Api = {
         body: isFormData ? data : JSON.stringify(data)
       });
     },
+    update: (id, data) => {
+      const isFormData = typeof FormData !== 'undefined' && data instanceof FormData;
+      return Api.request(`/assignments/${id}`, {
+        method: 'PUT',
+        body: isFormData ? data : JSON.stringify(data)
+      });
+    },
     extractText: (formData) => Api.request('/assignments/extract-text', {
       method: 'POST',
       body: formData
