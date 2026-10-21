@@ -919,3 +919,313 @@ textarea.form-control {
 .grade-answer-card.open-card {
   border-left: 4px solid var(--primary);
 }
+
+
+/* ==========================================================================
+   Yangi Bosqichli Topshiriq va Test Konstruktori (Modern Wizard Stepper)
+   ========================================================================== */
+
+/* Stepper navigatsiya paneli */
+.wizard-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.5rem;
+  margin-bottom: 1.5rem;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+
+.wizard-step-item {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition);
+  user-select: none;
+  border: 1.5px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  min-width: 140px;
+}
+
+.wizard-step-item:hover {
+  background: white;
+  color: var(--text-main);
+}
+
+.wizard-step-item.active {
+  background: white;
+  color: var(--primary);
+  border-color: var(--primary-light);
+  box-shadow: 0 1px 3px rgba(79, 70, 229, 0.1);
+  font-weight: 700;
+}
+
+.wizard-step-item.completed {
+  color: var(--success);
+}
+
+.wizard-step-num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: #e2e8f0;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  transition: var(--transition);
+}
+
+.wizard-step-item.active .wizard-step-num {
+  background: var(--primary);
+  color: white;
+}
+
+.wizard-step-item.completed .wizard-step-num {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.wizard-step-title {
+  font-size: 0.85rem;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.wizard-step-badge {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-full);
+  background: #e0e7ff;
+  color: #4338ca;
+  margin-left: auto;
+  font-weight: 700;
+}
+
+/* Stepper Panellar */
+.wizard-pane {
+  display: none;
+}
+
+.wizard-pane.active {
+  display: block;
+}
+
+/* Ixcham Savol Kartasi (Compact Question Card) */
+.compact-q-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 0.85rem;
+  transition: var(--transition);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  overflow: hidden;
+}
+
+.compact-q-card:hover {
+  border-color: #cbd5e1;
+}
+
+.compact-q-card.is-open {
+  border-color: #93c5fd;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.08);
+}
+
+.compact-q-card.type-closed {
+  border-left: 4px solid #6366f1;
+}
+
+.compact-q-card.type-open {
+  border-left: 4px solid #0ea5e9;
+}
+
+.compact-q-header {
+  padding: 0.85rem 1.15rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  background: white;
+  cursor: pointer;
+  user-select: none;
+}
+
+.compact-q-header:hover {
+  background: #f8fafc;
+}
+
+.compact-q-left {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.compact-q-title-preview {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-main);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 450px;
+}
+
+.compact-q-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.compact-q-body {
+  padding: 1.15rem;
+  border-top: 1px solid var(--border);
+  background: #fafafa;
+}
+
+/* Accordion toggler */
+.accordion-toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background: #f8fafc;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-main);
+  transition: var(--transition);
+  margin-top: 0.75rem;
+}
+
+.accordion-toggle-btn:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+}
+
+/* Baholash oynasidagi ball kartasi */
+.scoring-hero-card {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem 1.5rem;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.scoring-hero-left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.scoring-hero-score {
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #38bdf8;
+  line-height: 1.2;
+}
+
+.scoring-hero-right {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+}
+
+/* Savol baholash qatori */
+.grade-table-card {
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.85rem 1.15rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  transition: var(--transition);
+}
+
+.grade-table-card:hover {
+  background: #f8fafc;
+}
+
+/* Yakunlash Xulosasi */
+.summary-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.summary-overview-box {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+}
+
+.summary-overview-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.summary-overview-val {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+/* Mobil moslashuvchanlik */
+@media (max-width: 768px) {
+  .wizard-stepper {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 0.35rem;
+  }
+  .wizard-step-item {
+    min-width: 120px;
+    padding: 0.5rem;
+  }
+  .wizard-step-title {
+    font-size: 0.75rem;
+  }
+  .compact-q-title-preview {
+    max-width: 180px;
+  }
+  .scoring-hero-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .grade-table-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

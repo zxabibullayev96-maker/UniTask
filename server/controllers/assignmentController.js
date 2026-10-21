@@ -15,7 +15,7 @@ async function getAssignments(req, res) {
 
       const assignments = await db.allAsync(`
         SELECT 
-          a.id, a.title, a.subject, a.content, a.open_question, a.instructions, a.due_date,
+          a.id, a.title, a.subject, a.content, a.open_question, a.instructions, a.start_date, a.due_date,
           a.total_points, a.has_dynamic_questions,
           a.file_path, a.file_name, a.file_size, a.created_at,
           g.name as group_name,
@@ -45,7 +45,7 @@ async function getAssignments(req, res) {
     if (user.role === 'teacher') {
       const assignments = await db.allAsync(`
         SELECT 
-          a.id, a.title, a.subject, a.content, a.open_question, a.instructions, a.due_date,
+          a.id, a.title, a.subject, a.content, a.open_question, a.instructions, a.start_date, a.due_date,
           a.total_points, a.has_dynamic_questions,
           a.file_path, a.file_name, a.file_size, a.created_at, a.group_id,
           g.name as group_name,
@@ -68,7 +68,7 @@ async function getAssignments(req, res) {
     // Admin bo'lsa: Barcha topshiriqlar
     const assignments = await db.allAsync(`
       SELECT 
-        a.id, a.title, a.subject, a.content, a.open_question, a.instructions, a.due_date,
+        a.id, a.title, a.subject, a.content, a.open_question, a.instructions, a.start_date, a.due_date,
         a.total_points, a.has_dynamic_questions,
         a.file_path, a.file_name, a.file_size, a.created_at, a.group_id,
         g.name as group_name,
@@ -209,7 +209,7 @@ async function getAssignmentById(req, res) {
 
 async function createAssignment(req, res) {
   try {
-    const { title, subject, group_id, instructions, due_date } = req.body;
+    const { title, subject, group_id, instructions, start_date, due_date } = req.body;
     let content = req.body.content || '';
     let open_question = req.body.open_question || '';
     const teacher_id = req.user.id;
@@ -305,9 +305,9 @@ async function createAssignment(req, res) {
     // 1. Topshiriqni yaratish
     const result = await db.runAsync(`
       INSERT INTO assignments (
-        teacher_id, group_id, title, subject, content, open_question, instructions, due_date,
+        teacher_id, group_id, title, subject, content, open_question, instructions, start_date, due_date,
         total_points, has_dynamic_questions, file_path, file_name, file_size
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `, [
       teacher_id,
       group_id,
@@ -316,6 +316,7 @@ async function createAssignment(req, res) {
       content.trim(),
       open_question.trim(),
       instructions ? instructions.trim() : null,
+      start_date || null,
       due_date || null,
       totalPoints,
       hasDynamicQuestions ? 1 : 0,
@@ -395,7 +396,7 @@ async function updateAssignment(req, res) {
       return res.status(403).json({ success: false, message: 'Ushbu topshiriqni tahrirlash huquqiga ega emassiz.' });
     }
 
-    const { title, subject, group_id, instructions, due_date } = req.body;
+    const { title, subject, group_id, instructions, start_date, due_date } = req.body;
     let content = req.body.content !== undefined ? req.body.content : assignment.content;
     let open_question = req.body.open_question !== undefined ? req.body.open_question : assignment.open_question;
 
@@ -485,6 +486,7 @@ async function updateAssignment(req, res) {
         content = ?,
         open_question = ?,
         instructions = ?,
+        start_date = ?,
         due_date = ?,
         total_points = ?,
         has_dynamic_questions = ?,
@@ -499,6 +501,7 @@ async function updateAssignment(req, res) {
       content ? content.trim() : assignment.content,
       open_question ? open_question.trim() : assignment.open_question,
       instructions !== undefined ? (instructions ? instructions.trim() : null) : assignment.instructions,
+      start_date !== undefined ? start_date : assignment.start_date,
       due_date !== undefined ? due_date : assignment.due_date,
       totalPoints,
       hasDynamic,

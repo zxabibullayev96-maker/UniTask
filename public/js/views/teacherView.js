@@ -1,13 +1,30 @@
 /**
  * UniTask AI - O'qituvchi Boshqaruv Paneli (Teacher View)
- * Ochiq va yopiq testlarni dinamik yaratish, tahrirlash, tartiblash va AI yordamida baholash.
+ * Zamonaviy, soddalashtirilgan va bosqichli test va topshiriqlar konstruktori.
  */
 
 const TeacherView = {
   assignments: [],
   selectedAssignmentId: null,
   activeSubmissions: [],
-  tempQuestions: [], // Topshiriq yaratish/tahrirlash vaqtidagi savollar holati
+
+  // Bosqichli topshiriq yaratish holati
+  wizard: {
+    currentStep: 1,
+    editingAssignmentId: null,
+    basicInfo: {
+      title: '',
+      subject: '',
+      group_id: '',
+      start_date: '',
+      due_date: '',
+      instructions: '',
+      content: '',
+      hasTheoryExpanded: false
+    },
+    attachedFile: null,
+    questions: []
+  },
 
   async render() {
     return `
@@ -18,11 +35,11 @@ const TeacherView = {
             <h1 style="font-size: 1.75rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.02em;">
               <i class="fas fa-chalkboard-teacher" style="color: var(--primary);"></i> O'qituvchi Ish Stoli
             </h1>
-            <p style="font-size: 0.875rem; color: var(--text-muted);">
-              Mustaqil ta'lim topshiriqlarini yaratish, dinamik testlar tuzish, AI semantik tahlilini ko'rish va talabalar ishlarini baholash.
+            <p style="font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem;">
+              Topshiriq va testlar yaratish, talabalar javoblarini ko'rish hamda AI yordamida baholash.
             </p>
           </div>
-          <button class="btn btn-primary" onclick="TeacherView.showCreateAssignmentModal()">
+          <button class="btn btn-primary" onclick="TeacherView.openCreateWizard()">
             <i class="fas fa-plus"></i> Yangi Topshiriq Ochish
           </button>
         </div>
@@ -48,17 +65,16 @@ const TeacherView = {
         container.innerHTML = `
           <div class="empty-state card">
             <i class="fas fa-folder-open empty-state-icon"></i>
-            <div class="empty-state-title">Hozircha topshiriqlar yaratilmagan</div>
-            <div class="empty-state-desc">Talabalarga mustaqil ta'lim topshirig'i berish uchun birinchi topshiriqni oching. Ochiq va yopiq test savollarini xohlagancha qo'sha olasiz.</div>
-            <button class="btn btn-primary" onclick="TeacherView.showCreateAssignmentModal()">
-              <i class="fas fa-plus"></i> Birinchi Topshiriqni Yaratish
+            <div class="empty-state-title">Hozircha topshiriqlar mavjud emas</div>
+            <div class="empty-state-desc">Talabalarga mustaqil ta'lim topshirig'i berish uchun birinchi topshiriqni oching.</div>
+            <button class="btn btn-primary" onclick="TeacherView.openCreateWizard()">
+              <i class="fas fa-plus"></i> Topshiriq Yaratish
             </button>
           </div>
         `;
         return;
       }
 
-      // Agar birorta topshiriq tanlanmagan bo'lsa, birinchisini tanlaymiz
       if (!this.selectedAssignmentId && this.assignments.length > 0) {
         this.selectedAssignmentId = this.assignments[0].id;
       }
@@ -158,9 +174,6 @@ const TeacherView = {
       const submissions = res.submissions || [];
       this.activeSubmissions = submissions;
 
-      const wordsCount = (assignment.content || '').split(/\s+/).filter(w => w.length > 0).length;
-
-      // Savollar ro'yxatini yuklaymiz
       const assignRes = await Api.assignments.getById(assignmentId);
       const detailedAssignment = assignRes.assignment;
       const questions = detailedAssignment.questions || [];
@@ -175,7 +188,7 @@ const TeacherView = {
           </div>
         `;
       } else {
-        const rows = submissions.map((s, idx) => {
+        const rows = submissions.map((s) => {
           const scoreDisplay = s.total_score !== null 
             ? `${s.total_score} / ${s.max_score || assignment.total_points || 100} ball (${s.recommended_score || 0}%)`
             : (s.recommended_score !== null ? `${s.recommended_score} ball` : 'Hisoblanmoqda');
@@ -235,23 +248,23 @@ const TeacherView = {
           <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
               <h5 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0;">
-                <i class="fas fa-list-ol text-primary"></i> Topshiriq Savollari (${questions.length} ta &bull; Jami ${detailedAssignment.total_points || 100} ball)
+                <i class="fas fa-list-ol text-primary"></i> Savollar (${questions.length} ta &bull; Jami ${detailedAssignment.total_points || 100} ball)
               </h5>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 0.75rem; max-height: 250px; overflow-y: auto;">
+            <div style="display: flex; flex-direction: column; gap: 0.65rem; max-height: 250px; overflow-y: auto;">
               ${questions.map((q, idx) => `
                 <div style="background: var(--bg-alt); padding: 0.75rem 1rem; border-radius: var(--radius-md); border-left: 3px solid ${q.question_type === 'closed' ? '#6366f1' : '#0ea5e9'};">
                   <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
                     <span style="font-weight: 700; color: var(--text-main);">
-                      ${idx + 1}-savol: ${q.question_type === 'closed' ? '<span style="color: #6366f1;">[Yopiq test]</span>' : '<span style="color: #0ea5e9;">[Ochiq savol]</span>'}
+                      #${idx + 1} ${q.question_type === 'closed' ? '<span style="color: #6366f1;">[Yopiq test]</span>' : '<span style="color: #0ea5e9;">[Ochiq savol]</span>'}
                     </span>
                     <span class="badge" style="background: white; color: var(--text-main);">${q.points} ball</span>
                   </div>
                   <div style="font-size: 0.875rem; color: var(--text-main);">${q.question_text}</div>
                   ${q.question_type === 'closed' && q.options ? `
-                    <div style="margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.5rem; font-size: 0.775rem;">
+                    <div style="margin-top: 0.35rem; display: flex; flex-wrap: wrap; gap: 0.4rem; font-size: 0.775rem;">
                       ${q.options.map(opt => `
-                        <span style="padding: 0.2rem 0.5rem; border-radius: var(--radius-sm); background: ${opt.is_correct ? '#dcfce7' : 'white'}; color: ${opt.is_correct ? '#166534' : 'var(--text-muted)'}; border: 1px solid ${opt.is_correct ? '#86efac' : 'var(--border)'};">
+                        <span style="padding: 0.15rem 0.5rem; border-radius: var(--radius-sm); background: ${opt.is_correct ? '#dcfce7' : 'white'}; color: ${opt.is_correct ? '#166534' : 'var(--text-muted)'}; border: 1px solid ${opt.is_correct ? '#86efac' : 'var(--border)'};">
                           <strong>${opt.option_key}:</strong> ${opt.option_text} ${opt.is_correct ? '<i class="fas fa-check" title="To\'g\'ri javob"></i>' : ''}
                         </span>
                       `).join('')}
@@ -259,15 +272,6 @@ const TeacherView = {
                   ` : ''}
                 </div>
               `).join('')}
-            </div>
-          </div>
-        `;
-      } else {
-        questionsPreviewHtml = `
-          <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
-            <label class="form-label" style="color: var(--primary);"><i class="fas fa-question-circle"></i> Berilgan Ochiq Savol:</label>
-            <div style="background: var(--primary-light); padding: 0.85rem 1rem; border-radius: var(--radius-md); font-weight: 600; color: #1e1b4b; font-size: 0.925rem;">
-              ${assignment.open_question}
             </div>
           </div>
         `;
@@ -281,43 +285,35 @@ const TeacherView = {
               <div class="card-subtitle">
                 ${assignment.subject ? `<strong>Fan:</strong> ${assignment.subject} &bull; ` : ''}
                 <i class="fas fa-users"></i> ${assignment.group_name}
-                ${assignment.due_date ? ` &bull; <i class="fas fa-calendar-alt"></i> Muddat: ${AppUI.formatDate(assignment.due_date)}` : ''}
+                ${assignment.start_date ? ` &bull; <i class="fas fa-calendar-check"></i> Boshlanish: ${AppUI.formatDate(assignment.start_date)}` : ''}
+                ${assignment.due_date ? ` &bull; <i class="fas fa-calendar-times"></i> Tugash: ${AppUI.formatDate(assignment.due_date)}` : ''}
               </div>
             </div>
             <div style="display: flex; gap: 0.5rem;">
-              <button class="btn btn-outline-danger btn-sm" onclick="TeacherView.deleteAssignment(${assignment.id})">
+              <button class="btn btn-outline btn-sm" onclick="TeacherView.openEditWizard(${assignment.id})" title="Topshiriqni tahrirlash">
+                <i class="fas fa-edit"></i> Tahrirlash
+              </button>
+              <button class="btn btn-outline-danger btn-sm" onclick="TeacherView.deleteAssignment(${assignment.id})" title="Topshiriqni o'chirish">
                 <i class="fas fa-trash"></i> O'chirish
               </button>
             </div>
           </div>
           <div class="card-body">
-            <!-- Ko'rsatmalar (agar bo'lsa) -->
             ${assignment.instructions ? `
               <div style="background: #f0fdf4; border-left: 3px solid #22c55e; padding: 0.65rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1rem; font-size: 0.85rem; color: #15803d;">
-                <strong><i class="fas fa-info-circle"></i> Talabalarga ko'rsatma:</strong> ${assignment.instructions}
+                <strong><i class="fas fa-info-circle"></i> Tavsif / Ko'rsatma:</strong> ${assignment.instructions}
               </div>
             ` : ''}
 
-            <!-- Savollar qismi -->
             ${questionsPreviewHtml}
 
-            <!-- Nazariya preview -->
-            <div style="margin-top: 1.25rem;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
-                <label class="form-label"><i class="fas fa-book-reader"></i> Mavzu Nazariyasi (Ground Truth):</label>
-                <span class="word-badge valid">${wordsCount} ta so'z</span>
+            ${assignment.file_path ? `
+              <div style="margin-top: 1rem; padding-top: 0.75rem; border-top: 1px solid var(--border);">
+                <a href="${assignment.file_path}" target="_blank" download class="btn btn-outline btn-sm">
+                  <i class="fas fa-paperclip"></i> Ilova qilingan fayl: ${assignment.file_name || 'Hujjat'} ${assignment.file_size ? `(${(assignment.file_size / 1024).toFixed(1)} KB)` : ''}
+                </a>
               </div>
-              <div class="theory-reader-box" style="max-height: 140px;">
-                ${assignment.content}
-              </div>
-              ${assignment.file_path ? `
-                <div style="margin-top: 0.75rem;">
-                  <a href="${assignment.file_path}" target="_blank" download class="btn btn-outline btn-sm">
-                    <i class="fas fa-paperclip"></i> Ilova qilingan fayl: ${assignment.file_name || 'Hujjat'} ${assignment.file_size ? `(${(assignment.file_size / 1024).toFixed(1)} KB)` : ''}
-                  </a>
-                </div>
-              ` : ''}
-            </div>
+            ` : ''}
           </div>
         </div>
 
@@ -338,193 +334,420 @@ const TeacherView = {
   },
 
   // =========================================================================
-  // DINAMIK SAVOLLAR KONSTRUKTORI (Question Builder)
+  // SODDALASHTIRILGAN BOSQICHLI TEST VA TOPSHIRIQ YARATISH (Wizard)
   // =========================================================================
 
-  async showCreateAssignmentModal() {
+  async openCreateWizard() {
+    this.wizard = {
+      currentStep: 1,
+      editingAssignmentId: null,
+      basicInfo: {
+        title: '',
+        subject: '',
+        group_id: '',
+        start_date: '',
+        due_date: '',
+        instructions: '',
+        content: '',
+        hasTheoryExpanded: false
+      },
+      attachedFile: null,
+      questions: [
+        {
+          id: 'q_' + Date.now() + '_1',
+          question_type: 'closed',
+          question_text: '',
+          points: 5,
+          is_expanded: true,
+          options: [
+            { option_key: 'A', option_text: '', is_correct: 1 },
+            { option_key: 'B', option_text: '', is_correct: 0 },
+            { option_key: 'C', option_text: '', is_correct: 0 },
+            { option_key: 'D', option_text: '', is_correct: 0 }
+          ]
+        },
+        {
+          id: 'q_' + Date.now() + '_2',
+          question_type: 'open',
+          question_text: '',
+          points: 10,
+          is_expanded: false,
+          sample_answer: '',
+          instruction: ''
+        }
+      ]
+    };
+
+    await this.renderWizardModal();
+  },
+
+  async openEditWizard(assignmentId) {
+    try {
+      const res = await Api.assignments.getById(assignmentId);
+      const a = res.assignment;
+
+      const questions = (a.questions || []).map((q, idx) => ({
+        id: q.id || ('q_' + Date.now() + '_' + idx),
+        question_type: q.question_type || 'closed',
+        question_text: q.question_text || '',
+        points: q.points || 5,
+        is_expanded: false,
+        options: q.options ? q.options.map(opt => ({
+          option_key: opt.option_key,
+          option_text: opt.option_text,
+          is_correct: opt.is_correct === 1 || opt.is_correct === true ? 1 : 0
+        })) : [
+          { option_key: 'A', option_text: '', is_correct: 1 },
+          { option_key: 'B', option_text: '', is_correct: 0 }
+        ],
+        sample_answer: q.sample_answer || '',
+        instruction: q.instruction || ''
+      }));
+
+      // Agar savollar bo'sh bo'lsa
+      if (questions.length === 0) {
+        questions.push({
+          id: 'q_' + Date.now() + '_1',
+          question_type: 'closed',
+          question_text: '',
+          points: 5,
+          is_expanded: true,
+          options: [
+            { option_key: 'A', option_text: '', is_correct: 1 },
+            { option_key: 'B', option_text: '', is_correct: 0 }
+          ]
+        });
+      }
+
+      this.wizard = {
+        currentStep: 1,
+        editingAssignmentId: a.id,
+        basicInfo: {
+          title: a.title || '',
+          subject: a.subject || '',
+          group_id: a.group_id || '',
+          start_date: a.start_date ? a.start_date.substring(0, 16) : '',
+          due_date: a.due_date ? a.due_date.substring(0, 16) : '',
+          instructions: a.instructions || '',
+          content: a.content || '',
+          hasTheoryExpanded: !!(a.file_path || (a.content && a.content.length > 50))
+        },
+        attachedFile: null,
+        questions: questions
+      };
+
+      await this.renderWizardModal();
+    } catch (e) {
+      AppUI.showToast('danger', 'Xatolik', 'Topshiriqni tahrirlash uchun yuklab bo\'lmadi: ' + e.message);
+    }
+  },
+
+  async renderWizardModal() {
     const groupsRes = await Api.groups.getAll();
-    const groups = groupsRes.groups || [];
-    
-    if (groups.length === 0) {
-      AppUI.showToast('warning', 'Guruh topilmadi', 'Avval Super Admin tomonidan guruh yaratilishi kerak.');
-      return;
+    this.cachedGroups = groupsRes.groups || [];
+
+    const isEdit = !!this.wizard.editingAssignmentId;
+    const titleText = isEdit 
+      ? '<i class="fas fa-edit text-primary"></i> Topshiriqni Tahrirlash' 
+      : '<i class="fas fa-plus-circle text-primary"></i> Yangi Test va Topshiriq Yaratish';
+
+    const modalHtml = `
+      <div id="wizard-container" style="display: flex; flex-direction: column;">
+        <!-- Stepper Navigatsiyasi -->
+        <div class="wizard-stepper">
+          <div class="wizard-step-item ${this.wizard.currentStep === 1 ? 'active' : ''} ${this.wizard.currentStep > 1 ? 'completed' : ''}" onclick="TeacherView.goToStep(1)">
+            <div class="wizard-step-num">${this.wizard.currentStep > 1 ? '<i class="fas fa-check"></i>' : '1'}</div>
+            <div class="wizard-step-title">Asosiy ma'lumotlar</div>
+          </div>
+          <div class="wizard-step-item ${this.wizard.currentStep === 2 ? 'active' : ''} ${this.wizard.currentStep > 2 ? 'completed' : ''}" onclick="TeacherView.goToStep(2)">
+            <div class="wizard-step-num">${this.wizard.currentStep > 2 ? '<i class="fas fa-check"></i>' : '2'}</div>
+            <div class="wizard-step-title">Savollar</div>
+            <span class="wizard-step-badge" id="step2-badge">${this.wizard.questions.length}</span>
+          </div>
+          <div class="wizard-step-item ${this.wizard.currentStep === 3 ? 'active' : ''} ${this.wizard.currentStep > 3 ? 'completed' : ''}" onclick="TeacherView.goToStep(3)">
+            <div class="wizard-step-num">${this.wizard.currentStep > 3 ? '<i class="fas fa-check"></i>' : '3'}</div>
+            <div class="wizard-step-title">Baholash</div>
+            <span class="wizard-step-badge" id="step3-badge">${this.calcTotalPoints()} b</span>
+          </div>
+          <div class="wizard-step-item ${this.wizard.currentStep === 4 ? 'active' : ''}" onclick="TeacherView.goToStep(4)">
+            <div class="wizard-step-num">4</div>
+            <div class="wizard-step-title">Yakunlash</div>
+          </div>
+        </div>
+
+        <!-- Bosqichlar Kontenti -->
+        <div id="wizard-pane-content">
+          <!-- Dinamik ravishda joriy bosqich chiziladi -->
+        </div>
+      </div>
+    `;
+
+    AppUI.openModal(titleText, modalHtml, '', 'modal-xl');
+    this.renderCurrentStepPane();
+  },
+
+  renderCurrentStepPane() {
+    const pane = document.getElementById('wizard-pane-content');
+    if (!pane) return;
+
+    if (this.wizard.currentStep === 1) {
+      pane.innerHTML = this.getStep1Html();
+    } else if (this.wizard.currentStep === 2) {
+      pane.innerHTML = this.getStep2Html();
+    } else if (this.wizard.currentStep === 3) {
+      pane.innerHTML = this.getStep3Html();
+    } else if (this.wizard.currentStep === 4) {
+      pane.innerHTML = this.getStep4Html();
     }
 
-    const groupOptions = groups.map(g => `<option value="${g.id}">${g.name}</option>`).join('');
-
-    // Boshlang'ich savollar holati: 1 ta Yopiq test va 1 ta Ochiq savol
-    this.tempQuestions = [
-      {
-        id: 'q_' + Date.now() + '_1',
-        question_type: 'closed',
-        question_text: '',
-        points: 5,
-        options: [
-          { option_key: 'A', option_text: '', is_correct: 1 },
-          { option_key: 'B', option_text: '', is_correct: 0 },
-          { option_key: 'C', option_text: '', is_correct: 0 },
-          { option_key: 'D', option_text: '', is_correct: 0 }
-        ]
-      },
-      {
-        id: 'q_' + Date.now() + '_2',
-        question_type: 'open',
-        question_text: '',
-        instruction: '',
-        sample_answer: '',
-        points: 10
+    // Stepper holatini yangilash
+    const items = document.querySelectorAll('.wizard-step-item');
+    items.forEach((item, idx) => {
+      const stepNum = idx + 1;
+      item.className = `wizard-step-item ${this.wizard.currentStep === stepNum ? 'active' : ''} ${this.wizard.currentStep > stepNum ? 'completed' : ''}`;
+      const numEl = item.querySelector('.wizard-step-num');
+      if (numEl) {
+        numEl.innerHTML = this.wizard.currentStep > stepNum ? '<i class="fas fa-check"></i>' : stepNum;
       }
-    ];
+    });
 
-    const html = `
-      <form id="modal-form-assignment" onsubmit="TeacherView.handleCreateAssignment(event)">
-        
-        <!-- 1. Asosiy ma'lumotlar -->
-        <div style="background: var(--bg-alt); padding: 1.25rem; border-radius: var(--radius-lg); margin-bottom: 1.25rem; border: 1px solid var(--border);">
-          <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 1rem;">
-            <i class="fas fa-info-circle text-primary"></i> 1. Topshiriqning Asosiy Ma'lumotlari
-          </h4>
+    const b2 = document.getElementById('step2-badge');
+    if (b2) b2.innerText = this.wizard.questions.length;
 
+    const b3 = document.getElementById('step3-badge');
+    if (b3) b3.innerText = `${this.calcTotalPoints()} b`;
+  },
+
+  calcTotalPoints() {
+    let sum = 0;
+    this.wizard.questions.forEach(q => sum += (parseFloat(q.points) || 0));
+    return Math.round(sum * 10) / 10;
+  },
+
+  // DOM inputlaridan holatni saqlab qolish
+  syncCurrentStepState() {
+    if (this.wizard.currentStep === 1) {
+      const titleEl = document.getElementById('wiz-title');
+      if (titleEl) this.wizard.basicInfo.title = titleEl.value;
+
+      const subEl = document.getElementById('wiz-subject');
+      if (subEl) this.wizard.basicInfo.subject = subEl.value;
+
+      const grpEl = document.getElementById('wiz-group');
+      if (grpEl) this.wizard.basicInfo.group_id = grpEl.value;
+
+      const startEl = document.getElementById('wiz-start-date');
+      if (startEl) this.wizard.basicInfo.start_date = startEl.value;
+
+      const dueEl = document.getElementById('wiz-due-date');
+      if (dueEl) this.wizard.basicInfo.due_date = dueEl.value;
+
+      const instEl = document.getElementById('wiz-instructions');
+      if (instEl) this.wizard.basicInfo.instructions = instEl.value;
+
+      const contEl = document.getElementById('wiz-content');
+      if (contEl) this.wizard.basicInfo.content = contEl.value;
+    } else if (this.wizard.currentStep === 2) {
+      this.wizard.questions.forEach((q, idx) => {
+        const textEl = document.getElementById(`wiz-q-text-${idx}`);
+        if (textEl) q.question_text = textEl.value;
+
+        const ptsEl = document.getElementById(`wiz-q-points-${idx}`);
+        if (ptsEl) q.points = Math.max(0.5, parseFloat(ptsEl.value) || 1);
+
+        if (q.question_type === 'closed') {
+          q.options.forEach((opt, optIdx) => {
+            const optEl = document.getElementById(`wiz-opt-text-${idx}-${optIdx}`);
+            if (optEl) opt.option_text = optEl.value;
+
+            const radioEl = document.getElementById(`wiz-opt-radio-${idx}-${optIdx}`);
+            if (radioEl) opt.is_correct = radioEl.checked ? 1 : 0;
+          });
+        } else {
+          const sampleEl = document.getElementById(`wiz-q-sample-${idx}`);
+          if (sampleEl) q.sample_answer = sampleEl.value;
+
+          const instEl = document.getElementById(`wiz-q-inst-${idx}`);
+          if (instEl) q.instruction = instEl.value;
+        }
+      });
+    } else if (this.wizard.currentStep === 3) {
+      this.wizard.questions.forEach((q, idx) => {
+        const ptsEl = document.getElementById(`wiz-grade-pts-${idx}`);
+        if (ptsEl) q.points = Math.max(0.5, parseFloat(ptsEl.value) || 1);
+      });
+    }
+  },
+
+  goToStep(stepNumber) {
+    this.syncCurrentStepState();
+
+    // 1-bosqichdan keyingisiga o'tishda majburiy maydonlar validatsiyasi
+    if (stepNumber > 1) {
+      if (!this.wizard.basicInfo.title.trim()) {
+        AppUI.showToast('warning', 'Topshiriq nomi', 'Iltimos, topshiriq nomini kiriting.');
+        this.wizard.currentStep = 1;
+        this.renderCurrentStepPane();
+        return;
+      }
+      if (!this.wizard.basicInfo.group_id) {
+        AppUI.showToast('warning', 'Guruh tanlang', 'Topshiriq uchun akademik guruhni tanlang.');
+        this.wizard.currentStep = 1;
+        this.renderCurrentStepPane();
+        return;
+      }
+    }
+
+    // 2-bosqichdan keyingisiga o'tishda savollar validatsiyasi
+    if (stepNumber > 2) {
+      if (this.wizard.questions.length === 0) {
+        AppUI.showToast('warning', 'Savollar yo\'q', 'Topshiriqda kamida 1 ta savol bo\'lishi shart.');
+        this.wizard.currentStep = 2;
+        this.renderCurrentStepPane();
+        return;
+      }
+
+      for (let i = 0; i < this.wizard.questions.length; i++) {
+        const q = this.wizard.questions[i];
+        if (!q.question_text || !q.question_text.trim()) {
+          AppUI.showToast('warning', 'Savol matni', `${i + 1}-savol matnini kiriting.`);
+          q.is_expanded = true;
+          this.wizard.currentStep = 2;
+          this.renderCurrentStepPane();
+          return;
+        }
+        if (q.question_type === 'closed') {
+          const emptyOpt = q.options.some(opt => !opt.option_text || !opt.option_text.trim());
+          if (emptyOpt) {
+            AppUI.showToast('warning', 'Variant matni', `${i + 1}-test savolida barcha variantlarni to'ldiring.`);
+            q.is_expanded = true;
+            this.wizard.currentStep = 2;
+            this.renderCurrentStepPane();
+            return;
+          }
+          const hasCorrect = q.options.some(opt => opt.is_correct === 1);
+          if (!hasCorrect) {
+            AppUI.showToast('warning', 'To\'g\'ri javob', `${i + 1}-test savolida to'g'ri javobni belgilang.`);
+            q.is_expanded = true;
+            this.wizard.currentStep = 2;
+            this.renderCurrentStepPane();
+            return;
+          }
+        }
+      }
+    }
+
+    this.wizard.currentStep = stepNumber;
+    this.renderCurrentStepPane();
+  },
+
+  // =========================================================================
+  // 1-BOSQICH: Asosiy ma'lumotlar
+  // =========================================================================
+  getStep1Html() {
+    const b = this.wizard.basicInfo;
+    const groupOptions = (this.cachedGroups || []).map(g => `
+      <option value="${g.id}" ${String(b.group_id) === String(g.id) ? 'selected' : ''}>${g.name}</option>
+    `).join('');
+
+    return `
+      <div>
+        <div style="background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.5rem; margin-bottom: 1.5rem;">
+          
           <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 1rem; margin-bottom: 1rem;">
             <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label required">Topshiriq Nomi</label>
-              <input type="text" id="assign-title" class="form-control" placeholder="Masalan: 3-Topshiriq: Kriptografiya va Axborot Xavfsizligi" required />
+              <label class="form-label required">Topshiriq nomi</label>
+              <input type="text" id="wiz-title" class="form-control" placeholder="Masalan: 3-topshiriq: Kriptografiya asoslari" value="${b.title || ''}" required />
             </div>
 
             <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label">Fan yoki Mavzu</label>
-              <input type="text" id="assign-subject" class="form-control" placeholder="Masalan: Axborot xavfsizligi" />
+              <label class="form-label">Fan yoki mavzu</label>
+              <input type="text" id="wiz-subject" class="form-control" placeholder="Masalan: Kiberxavfsizlik" value="${b.subject || ''}" />
             </div>
           </div>
 
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
             <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label required">Akademik Guruh</label>
-              <select id="assign-group" class="form-select" required>
+              <label class="form-label required">Guruhni tanlash</label>
+              <select id="wiz-group" class="form-select" required>
                 <option value="">-- Guruhni tanlang --</option>
                 ${groupOptions}
               </select>
             </div>
 
             <div class="form-group" style="margin-bottom: 0;">
-              <label class="form-label">Topshirish Muddati (Deadline)</label>
-              <input type="datetime-local" id="assign-due-date" class="form-control" />
+              <label class="form-label">Boshlanish muddati</label>
+              <input type="datetime-local" id="wiz-start-date" class="form-control" value="${b.start_date || ''}" />
+            </div>
+
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Tugash muddati</label>
+              <input type="datetime-local" id="wiz-due-date" class="form-control" value="${b.due_date || ''}" />
             </div>
           </div>
 
           <div class="form-group" style="margin-bottom: 0;">
-            <label class="form-label">Talabalar uchun Ko'rsatma / Yo'riqnoma (Ixtiyoriy)</label>
-            <input type="text" id="assign-instructions" class="form-control" placeholder="Masalan: Barcha test savollarini diqqat bilan yeching. Ochiq savollarga batafsil javob bering." />
-          </div>
-        </div>
-
-        <!-- 2. Nazariy Matn va Fayl -->
-        <div style="background: var(--bg-alt); padding: 1.25rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem; border: 1px solid var(--border);">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-            <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0;">
-              <i class="fas fa-book-reader text-primary"></i> 2. Mavzu Nazariyasi (Ground Truth)
-            </h4>
-            <span id="assign-word-counter" class="word-badge warning">0 / 100 ta so'z</span>
+            <label class="form-label">Topshiriq tavsifi (ixtiyoriy)</label>
+            <textarea id="wiz-instructions" class="form-control" style="min-height: 70px;" placeholder="Talabalar uchun qisqa ko'rsatma yoki mavzu yo'riqnomasi...">${b.instructions || ''}</textarea>
           </div>
 
-          <!-- Fayl yuklash -->
-          <div style="margin-bottom: 0.85rem; padding: 0.75rem 1rem; border: 1.5px dashed var(--border); border-radius: var(--radius-md); background: white;">
-            <label class="form-label" style="font-size: 0.825rem; margin-bottom: 0.25rem;">
-              <i class="fas fa-file-upload text-primary"></i> Nazariy Ma'lumot Faylini Biriktirish (PDF, DOCX, PPTX)
-            </label>
-            <input 
-              type="file" 
-              id="assign-file-input" 
-              class="form-control" 
-              accept=".pdf,.doc,.docx,.pptx,.ppt,.txt" 
-              onchange="TeacherView.handleFileSelect(event)" 
-            />
-            <div class="form-hint" id="assign-file-status" style="margin-top: 0.25rem;">
-              <span>Fayl yuklasangiz, matn avtomatik ajratib olinadi va talabaga yuklab olish uchun ilova qilinadi.</span>
-            </div>
-          </div>
-
-          <textarea 
-            id="assign-content" 
-            class="form-control" 
-            style="min-height: 120px;" 
-            placeholder="AI ushbu matnni haqiqat manbasi (Ground Truth) deb biladi va talaba ochiq savollari javobini shu matnga semantik taqqoslaydi." 
-            oninput="TeacherView.updateWordCount(this.value)"
-            required></textarea>
-        </div>
-
-        <!-- 3. Dinamik Savollar Konstruktori -->
-        <div style="margin-bottom: 1.5rem;">
-          <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.75rem;">
-            <div>
-              <h4 style="font-size: 1.05rem; font-weight: 800; color: var(--text-main); margin: 0;">
-                <i class="fas fa-tasks text-primary"></i> 3. Savollar Konstruktori
-              </h4>
-              <p style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">
-                Istalgan miqdorda yopiq test va ochiq savollar qo'shing. Savollar soniga sun'iy cheklov yo'q.
-              </p>
-            </div>
-
-            <!-- Savol qo'shish tugmalari -->
-            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-              <button type="button" class="btn btn-outline btn-sm" onclick="TeacherView.addClosedQuestion()">
-                <i class="fas fa-plus-circle"></i> + Yopiq test qo'shish
-              </button>
-              <button type="button" class="btn btn-outline btn-sm" onclick="TeacherView.addOpenQuestion()">
-                <i class="fas fa-plus-circle"></i> + Ochiq savol qo'shish
-              </button>
-            </div>
-          </div>
-
-          <!-- Savollar statistikasi paneli -->
-          <div id="questions-summary-bar-container"></div>
-
-          <!-- Savollar kartalari konteyneri -->
-          <div id="questions-builder-list" style="display: flex; flex-direction: column; gap: 1rem;"></div>
-        </div>
-
-        <!-- Pastki amallar -->
-        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 1.25rem; margin-top: 1.5rem;">
-          <button type="button" class="btn btn-secondary" onclick="TeacherView.showPreviewModal()">
-            <i class="fas fa-eye"></i> Oldindan Ko'rish (Preview)
-          </button>
-
-          <div style="display: flex; gap: 0.5rem;">
-            <button type="button" class="btn btn-secondary" onclick="AppUI.closeModal()">Bekor qilish</button>
-            <button type="submit" class="btn btn-primary" id="btn-save-assignment">
-              <i class="fas fa-check"></i> Topshiriqni E'lon Qilish
+          <!-- Nazariy material / Fayl biriktirish (Ixtiyoriy ochiluvchi blok) -->
+          <div style="margin-top: 1rem;">
+            <button type="button" class="accordion-toggle-btn" onclick="TeacherView.toggleTheorySection()">
+              <span>
+                <i class="fas fa-file-alt text-primary"></i> Qo'shimcha nazariy material yoki fayl biriktirish (Ixtiyoriy)
+              </span>
+              <i class="fas fa-chevron-${b.hasTheoryExpanded ? 'up' : 'down'}"></i>
             </button>
+
+            <div id="theory-accordion-content" style="display: ${b.hasTheoryExpanded ? 'block' : 'none'}; padding-top: 0.85rem;">
+              <div style="background: var(--bg-alt); padding: 1rem; border-radius: var(--radius-md); border: 1px solid var(--border);">
+                <div style="margin-bottom: 0.75rem;">
+                  <label class="form-label" style="font-size: 0.8rem;">
+                    <i class="fas fa-paperclip"></i> Hujjat biriktirish (PDF, DOCX, PPTX)
+                  </label>
+                  <input type="file" id="wiz-file-input" class="form-control" accept=".pdf,.doc,.docx,.pptx,.ppt,.txt" onchange="TeacherView.handleWizardFileSelect(event)" />
+                  <div id="wiz-file-status" class="form-hint" style="margin-top: 0.25rem;">
+                    <span>Fayl yuklansa, matn olinib AI tekshiruvi uchun manba sifatida foydalaniladi.</span>
+                  </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label" style="font-size: 0.8rem;">Nazariy matn (AI uchun haqiqat manbasi):</label>
+                  <textarea id="wiz-content" class="form-control" style="min-height: 80px;" placeholder="Mavzuga oid nazariy matn...">${b.content || ''}</textarea>
+                </div>
+              </div>
+            </div>
           </div>
+
         </div>
 
-      </form>
+        <!-- Pastki tugmalar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 1rem;">
+          <button type="button" class="btn btn-secondary" onclick="AppUI.closeModal()">Bekor qilish</button>
+          <button type="button" class="btn btn-primary" onclick="TeacherView.goToStep(2)">
+            Keyingisi: Savollar <i class="fas fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
     `;
-
-    AppUI.openModal('<i class="fas fa-plus-circle text-primary"></i> Yangi Mustaqil Ta\'lim Topshirig\'i Ochish', html, '', 'modal-xl');
-
-    // Savollar konstruktorini birinchi marta chizish
-    this.renderQuestionsBuilder();
   },
 
-  updateWordCount(text) {
-    const words = (text || '').trim().split(/\s+/).filter(w => w.length > 0).length;
-    const badge = document.getElementById('assign-word-counter');
-    if (!badge) return;
-
-    badge.innerText = `${words} / 100 ta so'z`;
-    if (words >= 100) {
-      badge.className = 'word-badge valid';
-    } else {
-      badge.className = 'word-badge warning';
+  toggleTheorySection() {
+    this.wizard.basicInfo.hasTheoryExpanded = !this.wizard.basicInfo.hasTheoryExpanded;
+    const content = document.getElementById('theory-accordion-content');
+    if (content) {
+      content.style.display = this.wizard.basicInfo.hasTheoryExpanded ? 'block' : 'none';
     }
   },
 
-  async handleFileSelect(event) {
+  async handleWizardFileSelect(event) {
     const file = event.target.files[0];
     if (!file) return;
 
-    const statusEl = document.getElementById('assign-file-status');
-    const contentEl = document.getElementById('assign-content');
+    this.wizard.attachedFile = file;
+    const statusEl = document.getElementById('wiz-file-status');
+    const contentEl = document.getElementById('wiz-content');
 
     if (statusEl) {
       statusEl.innerHTML = `<span style="color: var(--primary);"><i class="fas fa-spinner fa-spin"></i> "${file.name}" faylidan matn ajratilmoqda...</span>`;
@@ -533,120 +756,305 @@ const TeacherView = {
     try {
       const formData = new FormData();
       formData.append('file', file);
-
       const res = await Api.assignments.extractText(formData);
 
       if (res.extractedText && res.extractedText.trim().length > 0) {
         if (contentEl) {
           contentEl.value = res.extractedText;
-          TeacherView.updateWordCount(res.extractedText);
+          this.wizard.basicInfo.content = res.extractedText;
         }
         if (statusEl) {
-          statusEl.innerHTML = `<span style="color: var(--success); font-weight: 600;"><i class="fas fa-check-circle"></i> "${file.name}" faylidan ${res.wordCount} ta so'z ajratildi!</span>`;
-        }
-        AppUI.showToast('success', 'Fayl o\'qildi', `"${file.name}" faylidagi ma'lumotlar joylandi.`);
-      } else {
-        if (statusEl) {
-          statusEl.innerHTML = `<span style="color: var(--warning);"><i class="fas fa-info-circle"></i> Fayl biriktirildi (${file.name}), ammo matn topilmadi. Qo'lda to'ldirishingiz mumkin.</span>`;
+          statusEl.innerHTML = `<span style="color: var(--success); font-weight: 600;"><i class="fas fa-check-circle"></i> "${file.name}" yuklandi (${res.wordCount} ta so'z).</span>`;
         }
       }
     } catch (err) {
       if (statusEl) {
-        statusEl.innerHTML = `<span style="color: var(--danger);"><i class="fas fa-exclamation-triangle"></i> Xatolik: ${err.message}</span>`;
+        statusEl.innerHTML = `<span style="color: var(--warning);"><i class="fas fa-info-circle"></i> Fayl biriktirildi (${file.name}).</span>`;
       }
-      AppUI.showToast('warning', 'Fayl parsing', err.message);
     }
   },
 
-  // DOM dagi inputlardan holatni yangilash
-  syncQuestionsFromDOM() {
-    this.tempQuestions.forEach((q, idx) => {
-      const textEl = document.getElementById(`q-text-${idx}`);
-      if (textEl) q.question_text = textEl.value;
-
-      const ptsEl = document.getElementById(`q-points-${idx}`);
-      if (ptsEl) q.points = Math.max(0.5, parseFloat(ptsEl.value) || 1);
-
-      if (q.question_type === 'closed') {
-        q.options.forEach((opt, optIdx) => {
-          const optTextEl = document.getElementById(`opt-text-${idx}-${optIdx}`);
-          if (optTextEl) opt.option_text = optTextEl.value;
-
-          const radioEl = document.getElementById(`opt-radio-${idx}-${optIdx}`);
-          if (radioEl) opt.is_correct = radioEl.checked ? 1 : 0;
-        });
-      } else {
-        const instEl = document.getElementById(`q-inst-${idx}`);
-        if (instEl) q.instruction = instEl.value;
-
-        const sampleEl = document.getElementById(`q-sample-${idx}`);
-        if (sampleEl) q.sample_answer = sampleEl.value;
-      }
+  // =========================================================================
+  // 2-BOSQICH: Savollar Konstruktori
+  // =========================================================================
+  getStep2Html() {
+    let closedCount = 0;
+    let openCount = 0;
+    this.wizard.questions.forEach(q => {
+      if (q.question_type === 'closed') closedCount++;
+      if (q.question_type === 'open') openCount++;
     });
+
+    const cardsHtml = this.wizard.questions.map((q, idx) => {
+      const isClosed = q.question_type === 'closed';
+      const isOpen = q.is_expanded !== false;
+      const previewText = q.question_text ? q.question_text.trim() : '(Savol matni kiritilmagan)';
+
+      return `
+        <div class="compact-q-card ${isClosed ? 'type-closed' : 'type-open'} ${isOpen ? 'is-open' : ''}" id="wiz-card-${idx}">
+          <!-- Ixcham sarlavha -->
+          <div class="compact-q-header" onclick="TeacherView.toggleQuestionExpand(${idx})">
+            <div class="compact-q-left">
+              <span style="font-weight: 800; font-size: 0.95rem; color: var(--text-main);">#${idx + 1}</span>
+              <span class="badge ${isClosed ? 'builder-badge-closed' : 'builder-badge-open'}">
+                <i class="fas ${isClosed ? 'fa-check-circle' : 'fa-align-left'}"></i>
+                ${isClosed ? 'Yopiq test' : 'Ochiq savol'}
+              </span>
+              <span class="compact-q-title-preview" title="${q.question_text || ''}">${previewText}</span>
+              <span class="badge" style="background: var(--bg-alt); color: var(--text-main); font-weight: 700; margin-left: auto;">
+                ${q.points || 5} ball
+              </span>
+            </div>
+
+            <div class="compact-q-actions" onclick="event.stopPropagation()">
+              <button type="button" class="btn btn-secondary btn-sm" title="Yuqoriga" onclick="TeacherView.moveWizardQuestion(${idx}, -1)" ${idx === 0 ? 'disabled' : ''}>
+                <i class="fas fa-arrow-up"></i>
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" title="Pastga" onclick="TeacherView.moveWizardQuestion(${idx}, 1)" ${idx === this.wizard.questions.length - 1 ? 'disabled' : ''}>
+                <i class="fas fa-arrow-down"></i>
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm" title="${isOpen ? 'Yig\'ish' : 'Tahrirlash'}" onclick="TeacherView.toggleQuestionExpand(${idx})">
+                <i class="fas fa-${isOpen ? 'chevron-up' : 'pen'}"></i>
+              </button>
+              <button type="button" class="btn btn-outline-danger btn-sm" title="O'chirish" onclick="TeacherView.deleteWizardQuestion(${idx})">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Kengaytirilgan tahrirlash qismi -->
+          <div class="compact-q-body" style="display: ${isOpen ? 'block' : 'none'};">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <label class="form-label required" style="font-size: 0.85rem; margin: 0;">Savol matni</label>
+              <div style="display: flex; align-items: center; gap: 0.35rem;">
+                <label style="font-size: 0.8rem; color: var(--text-muted); margin: 0;">Ball:</label>
+                <input 
+                  type="number" 
+                  id="wiz-q-points-${idx}" 
+                  class="form-control" 
+                  style="width: 70px; height: 30px; text-align: center; font-weight: 700; padding: 0.2rem 0.4rem;" 
+                  value="${q.points}" 
+                  min="0.5" 
+                  step="0.5" 
+                  onchange="TeacherView.syncCurrentStepState(); TeacherView.updateSummaryBadges();" 
+                />
+              </div>
+            </div>
+
+            <textarea 
+              id="wiz-q-text-${idx}" 
+              class="form-control" 
+              style="min-height: 60px; margin-bottom: 0.75rem;" 
+              placeholder="${isClosed ? 'Test savoli matnini kiriting...' : 'Ochiq savol matnini kiriting...'}" 
+              oninput="TeacherView.updateCardPreviewText(${idx}, this.value)" 
+              required>${q.question_text || ''}</textarea>
+
+            ${isClosed ? `
+              <!-- Yopiq test variantlari -->
+              <div style="background: white; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.85rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                  <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">
+                    Javob variantlari (To'g'ri javobni belgilang):
+                  </span>
+                  <button type="button" class="btn btn-outline btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="TeacherView.addWizardOption(${idx})">
+                    <i class="fas fa-plus"></i> Variant qo'shish
+                  </button>
+                </div>
+
+                <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                  ${q.options.map((opt, optIdx) => `
+                    <div class="option-row" style="margin-bottom: 0.35rem;">
+                      <div class="option-key-label" style="width: 28px; height: 28px; font-size: 0.8rem;">${opt.option_key}</div>
+                      <input 
+                        type="text" 
+                        id="wiz-opt-text-${idx}-${optIdx}" 
+                        class="form-control" 
+                        style="font-size: 0.875rem;" 
+                        placeholder="${opt.option_key} varianti..." 
+                        value="${opt.option_text || ''}" 
+                        required 
+                      />
+
+                      <label class="option-radio-label ${opt.is_correct ? 'correct' : ''}" style="padding: 0.3rem 0.6rem;">
+                        <input 
+                          type="radio" 
+                          name="wiz-correct-opt-${idx}" 
+                          id="wiz-opt-radio-${idx}-${optIdx}" 
+                          ${opt.is_correct ? 'checked' : ''} 
+                          onchange="TeacherView.setWizardCorrectOption(${idx}, ${optIdx})" 
+                        />
+                        <span>${opt.is_correct ? 'To\'g\'ri' : 'Noto\'g\'ri'}</span>
+                      </label>
+
+                      ${q.options.length > 2 ? `
+                        <button type="button" class="btn btn-secondary btn-sm" style="padding: 0.3rem 0.5rem; color: var(--danger);" title="Variantni o'chirish" onclick="TeacherView.removeWizardOption(${idx}, ${optIdx})">
+                          <i class="fas fa-times"></i>
+                        </button>
+                      ` : ''}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : `
+              <!-- Ochiq savol mezonlari -->
+              <div style="background: white; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.85rem;">
+                <div class="form-group" style="margin-bottom: 0.65rem;">
+                  <label class="form-label" style="font-size: 0.8rem;">Namunaviy javob yoki baholash mezoni</label>
+                  <textarea 
+                    id="wiz-q-sample-${idx}" 
+                    class="form-control" 
+                    style="min-height: 60px; background: #fffdf5; border-color: #fde68a;" 
+                    placeholder="AI va o'qituvchi baholashi uchun to'g'ri javob namunasi...">${q.sample_answer || ''}</textarea>
+                  <div class="form-hint" style="color: #92400e;">
+                    <i class="fas fa-lock"></i> Bu ma'lumot talabaga ko'rinmaydi, faqat AI baholashi uchun ishlatiladi.
+                  </div>
+                </div>
+
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label" style="font-size: 0.8rem;">Talaba uchun ko'rsatma (ixtiyoriy)</label>
+                  <input 
+                    type="text" 
+                    id="wiz-q-inst-${idx}" 
+                    class="form-control" 
+                    placeholder="Masalan: Kamida 3 ta asosiy farqni keltiring." 
+                    value="${q.instruction || ''}" 
+                  />
+                </div>
+              </div>
+            `}
+
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div>
+        <!-- Savollar boshqaruv paneli -->
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span class="badge" style="background: var(--bg-alt); color: var(--text-main); font-size: 0.85rem; padding: 0.35rem 0.65rem;">
+              <i class="fas fa-tasks text-primary"></i> Jami: ${this.wizard.questions.length} ta savol
+            </span>
+            <span class="badge" style="background: #e0e7ff; color: #4338ca; font-size: 0.8rem;">${closedCount} ta test</span>
+            <span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 0.8rem;">${openCount} ta ochiq</span>
+          </div>
+
+          <!-- Tezkor qo'shish tugmalari -->
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="TeacherView.addQuestionWizard('closed')">
+              <i class="fas fa-check-circle"></i> + Test qo'shish
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="TeacherView.addQuestionWizard('open')">
+              <i class="fas fa-feather-alt"></i> + Savol qo'shish
+            </button>
+          </div>
+        </div>
+
+        <!-- Savollar ro'yxati -->
+        <div id="wiz-questions-list" style="margin-bottom: 1.5rem;">
+          ${cardsHtml}
+        </div>
+
+        <!-- Pastki navigatsiya -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 1rem;">
+          <button type="button" class="btn btn-secondary" onclick="TeacherView.goToStep(1)">
+            <i class="fas fa-arrow-left"></i> Oldingisi
+          </button>
+          <button type="button" class="btn btn-primary" onclick="TeacherView.goToStep(3)">
+            Keyingisi: Baholash <i class="fas fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    `;
   },
 
-  // Yopiq test qo'shish
-  addClosedQuestion() {
-    this.syncQuestionsFromDOM();
-    this.tempQuestions.push({
-      id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-      question_type: 'closed',
-      question_text: '',
-      points: 2,
-      options: [
-        { option_key: 'A', option_text: '', is_correct: 1 },
-        { option_key: 'B', option_text: '', is_correct: 0 },
-        { option_key: 'C', option_text: '', is_correct: 0 },
-        { option_key: 'D', option_text: '', is_correct: 0 }
-      ]
-    });
-    this.renderQuestionsBuilder();
-    AppUI.showToast('info', 'Yopiq test qo\'shildi', 'Yangi test savoli qo\'shildi.');
+  updateCardPreviewText(idx, val) {
+    const card = document.getElementById(`wiz-card-${idx}`);
+    if (!card) return;
+    const previewEl = card.querySelector('.compact-q-title-preview');
+    if (previewEl) {
+      previewEl.innerText = val.trim() || '(Savol matni kiritilmagan)';
+      previewEl.title = val;
+    }
   },
 
-  // Ochiq savol qo'shish
-  addOpenQuestion() {
-    this.syncQuestionsFromDOM();
-    this.tempQuestions.push({
-      id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
-      question_type: 'open',
-      question_text: '',
-      instruction: '',
-      sample_answer: '',
-      points: 10
-    });
-    this.renderQuestionsBuilder();
-    AppUI.showToast('info', 'Ochiq savol qo\'shildi', 'Yangi ochiq savol qo\'shildi.');
+  updateSummaryBadges() {
+    const b3 = document.getElementById('step3-badge');
+    if (b3) b3.innerText = `${this.calcTotalPoints()} b`;
   },
 
-  // Savolni o'chirish
-  removeQuestion(idx) {
-    this.syncQuestionsFromDOM();
-    if (this.tempQuestions.length <= 1) {
-      AppUI.showToast('warning', 'O\'chirib bo\'lmaydi', 'Topshiriqda kamida bitta savol bo\'lishi shart.');
+  toggleQuestionExpand(idx) {
+    this.syncCurrentStepState();
+    const q = this.wizard.questions[idx];
+    if (q) {
+      q.is_expanded = !q.is_expanded;
+    }
+    this.renderCurrentStepPane();
+  },
+
+  addQuestionWizard(type) {
+    this.syncCurrentStepState();
+    // Oldingi barcha savollarni yig'amiz, yangisi ochiq bo'ladi
+    this.wizard.questions.forEach(q => q.is_expanded = false);
+
+    if (type === 'closed') {
+      this.wizard.questions.push({
+        id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        question_type: 'closed',
+        question_text: '',
+        points: 5,
+        is_expanded: true,
+        options: [
+          { option_key: 'A', option_text: '', is_correct: 1 },
+          { option_key: 'B', option_text: '', is_correct: 0 },
+          { option_key: 'C', option_text: '', is_correct: 0 },
+          { option_key: 'D', option_text: '', is_correct: 0 }
+        ]
+      });
+      AppUI.showToast('info', 'Test qo\'shildi', 'Yangi yopiq test savoli qo\'shildi.');
+    } else {
+      this.wizard.questions.push({
+        id: 'q_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        question_type: 'open',
+        question_text: '',
+        points: 10,
+        is_expanded: true,
+        sample_answer: '',
+        instruction: ''
+      });
+      AppUI.showToast('info', 'Savol qo\'shildi', 'Yangi ochiq savol qo\'shildi.');
+    }
+
+    this.renderCurrentStepPane();
+  },
+
+  deleteWizardQuestion(idx) {
+    this.syncCurrentStepState();
+    if (this.wizard.questions.length <= 1) {
+      AppUI.showToast('warning', 'O\'chirib bo\'lmaydi', 'Topshiriqda kamida bitta savol qolishi shart.');
       return;
     }
-    this.tempQuestions.splice(idx, 1);
-    this.renderQuestionsBuilder();
+    this.wizard.questions.splice(idx, 1);
+    this.renderCurrentStepPane();
   },
 
-  // Savol o'rnini almashtirish (Move Up / Down)
-  moveQuestion(idx, direction) {
-    this.syncQuestionsFromDOM();
-    const newIdx = idx + direction;
-    if (newIdx < 0 || newIdx >= this.tempQuestions.length) return;
+  moveWizardQuestion(idx, direction) {
+    this.syncCurrentStepState();
+    const targetIdx = idx + direction;
+    if (targetIdx < 0 || targetIdx >= this.wizard.questions.length) return;
 
-    const temp = this.tempQuestions[idx];
-    this.tempQuestions[idx] = this.tempQuestions[newIdx];
-    this.tempQuestions[newIdx] = temp;
+    const temp = this.wizard.questions[idx];
+    this.wizard.questions[idx] = this.wizard.questions[targetIdx];
+    this.wizard.questions[targetIdx] = temp;
 
-    this.renderQuestionsBuilder();
+    this.renderCurrentStepPane();
   },
 
-  // Variant qo'shish
-  addOption(qIdx) {
-    this.syncQuestionsFromDOM();
-    const q = this.tempQuestions[qIdx];
+  addWizardOption(qIdx) {
+    this.syncCurrentStepState();
+    const q = this.wizard.questions[qIdx];
     if (!q || q.question_type !== 'closed') return;
 
     const nextKey = String.fromCharCode(65 + q.options.length);
@@ -655,381 +1063,345 @@ const TeacherView = {
       option_text: '',
       is_correct: 0
     });
-
-    this.renderQuestionsBuilder();
+    this.renderCurrentStepPane();
   },
 
-  // Variantni o'chirish (kamida 2 ta variant qolishi kerak)
-  removeOption(qIdx, optIdx) {
-    this.syncQuestionsFromDOM();
-    const q = this.tempQuestions[qIdx];
+  removeWizardOption(qIdx, optIdx) {
+    this.syncCurrentStepState();
+    const q = this.wizard.questions[qIdx];
     if (!q || q.question_type !== 'closed') return;
 
     if (q.options.length <= 2) {
-      AppUI.showToast('warning', 'Cheklov', 'Yopiq testda kamida 2 ta javob varianti bo\'lishi shart.');
+      AppUI.showToast('warning', 'Cheklov', 'Kamida 2 ta javob varianti bo\'lishi shart.');
       return;
     }
 
     const wasCorrect = q.options[optIdx].is_correct === 1;
     q.options.splice(optIdx, 1);
 
-    // Qolgan variantlarning harflarini qayta A, B, C... qilib tuzamiz
     q.options.forEach((opt, i) => {
       opt.option_key = String.fromCharCode(65 + i);
     });
 
-    // Agar o'chirilgan variant to'g'ri javob bo'lgan bo'lsa, birinchi variantni to'g'ri qilamiz
     if (wasCorrect && q.options.length > 0) {
       q.options[0].is_correct = 1;
     }
 
-    this.renderQuestionsBuilder();
+    this.renderCurrentStepPane();
   },
 
-  // To'g'ri javobni tanlash
-  setCorrectOption(qIdx, optIdx) {
-    this.syncQuestionsFromDOM();
-    const q = this.tempQuestions[qIdx];
+  setWizardCorrectOption(qIdx, optIdx) {
+    this.syncCurrentStepState();
+    const q = this.wizard.questions[qIdx];
     if (!q || q.question_type !== 'closed') return;
 
     q.options.forEach((opt, i) => {
       opt.is_correct = (i === optIdx) ? 1 : 0;
     });
 
-    this.renderQuestionsBuilder();
+    this.renderCurrentStepPane();
   },
 
-  // Konstruktorni qayta chizish
-  renderQuestionsBuilder() {
-    const listEl = document.getElementById('questions-builder-list');
-    const summaryEl = document.getElementById('questions-summary-bar-container');
-    if (!listEl) return;
-
-    let totalPoints = 0;
+  // =========================================================================
+  // 3-BOSQICH: Baholash
+  // =========================================================================
+  getStep3Html() {
+    const totalPts = this.calcTotalPoints();
     let closedCount = 0;
     let openCount = 0;
-
-    this.tempQuestions.forEach(q => {
-      totalPoints += (parseFloat(q.points) || 0);
+    this.wizard.questions.forEach(q => {
       if (q.question_type === 'closed') closedCount++;
       if (q.question_type === 'open') openCount++;
     });
 
-    totalPoints = Math.round(totalPoints * 10) / 10;
-
-    if (summaryEl) {
-      summaryEl.innerHTML = `
-        <div class="questions-summary-bar">
-          <div class="summary-stat-item">
-            <i class="fas fa-layer-group text-primary"></i> Jami: <strong>${this.tempQuestions.length} ta savol</strong>
-          </div>
-          <div class="summary-stat-item">
-            <i class="fas fa-check-square" style="color: #6366f1;"></i> Yopiq testlar: <strong>${closedCount} ta</strong>
-          </div>
-          <div class="summary-stat-item">
-            <i class="fas fa-align-left" style="color: #0ea5e9;"></i> Ochiq savollar: <strong>${openCount} ta</strong>
-          </div>
-          <div class="summary-stat-item">
-            <i class="fas fa-star" style="color: #f59e0b;"></i> Umumiy Maksimal Ball: <strong>${totalPoints} ball</strong>
-          </div>
-        </div>
-      `;
-    }
-
-    if (this.tempQuestions.length === 0) {
-      listEl.innerHTML = `
-        <div class="empty-state" style="padding: 1.5rem; background: white; border-radius: var(--radius-md); border: 1px dashed var(--border);">
-          <p>Hozircha savollar qo'shilmadi. Yuqoridagi tugmalar orqali yopiq yoki ochiq savol qo'shing.</p>
-        </div>
-      `;
-      return;
-    }
-
-    listEl.innerHTML = this.tempQuestions.map((q, idx) => {
+    const rowsHtml = this.wizard.questions.map((q, idx) => {
       const isClosed = q.question_type === 'closed';
+      const correctOpt = isClosed ? q.options.find(o => o.is_correct === 1) : null;
 
       return `
-        <div class="builder-question-card ${isClosed ? 'border-closed' : 'border-open'}" id="q-card-${idx}">
-          
-          <!-- Savol sarlavhasi va amallar -->
-          <div class="builder-header">
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <span style="font-weight: 800; font-size: 1rem; color: var(--text-main);">#${idx + 1}</span>
-              <span class="builder-badge ${isClosed ? 'builder-badge-closed' : 'builder-badge-open'}">
-                <i class="fas ${isClosed ? 'fa-check-circle' : 'fa-feather-alt'}"></i>
-                ${isClosed ? 'Yopiq Test Savoli' : 'Ochiq Savol'}
+        <div class="grade-table-card">
+          <div style="flex: 1; min-width: 0;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+              <span style="font-weight: 800; color: var(--text-main);">#${idx + 1}</span>
+              <span class="badge ${isClosed ? 'builder-badge-closed' : 'builder-badge-open'}">
+                ${isClosed ? 'Yopiq test' : 'Ochiq savol'}
+              </span>
+              <span style="font-size: 0.875rem; font-weight: 600; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px;">
+                ${q.question_text || '(Savol matni kiritilmagan)'}
               </span>
             </div>
 
-            <div class="builder-actions">
-              <div style="display: flex; align-items: center; gap: 0.35rem; margin-right: 0.5rem;">
-                <label style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin: 0;">Maksimal ball:</label>
-                <input 
-                  type="number" 
-                  id="q-points-${idx}" 
-                  class="form-control" 
-                  style="width: 70px; padding: 0.25rem 0.5rem; height: 32px; font-weight: 700; text-align: center;" 
-                  value="${q.points}" 
-                  min="0.5" 
-                  step="0.5" 
-                  onchange="TeacherView.syncQuestionsFromDOM(); TeacherView.renderQuestionsBuilder();"
-                />
-              </div>
-
-              <!-- Yuqoriga / Pastga / O'chirish -->
-              <button type="button" class="btn btn-secondary btn-sm" title="Yuqoriga ko'tarish" onclick="TeacherView.moveQuestion(${idx}, -1)" ${idx === 0 ? 'disabled' : ''}>
-                <i class="fas fa-arrow-up"></i>
-              </button>
-              <button type="button" class="btn btn-secondary btn-sm" title="Pastga tushirish" onclick="TeacherView.moveQuestion(${idx}, 1)" ${idx === this.tempQuestions.length - 1 ? 'disabled' : ''}>
-                <i class="fas fa-arrow-down"></i>
-              </button>
-              <button type="button" class="btn btn-outline-danger btn-sm" title="Savolni o'chirish" onclick="TeacherView.removeQuestion(${idx})">
-                <i class="fas fa-trash"></i>
-              </button>
+            <div style="font-size: 0.775rem; color: var(--text-muted);">
+              ${isClosed ? `
+                <span style="color: #166534; font-weight: 600;">
+                  <i class="fas fa-check-circle"></i> To'g'ri javob: [${correctOpt ? correctOpt.option_key : 'Tanlanmagan'}] ${correctOpt ? correctOpt.option_text : ''}
+                </span>
+              ` : `
+                <span><i class="fas fa-ruble-sign"></i> Mezon / Namunaviy javob: ${q.sample_answer ? q.sample_answer.substring(0, 60) + '...' : 'Belgilanmagan'}</span>
+              `}
             </div>
           </div>
 
-          <!-- Savol matni -->
-          <div class="form-group" style="margin-bottom: 0.85rem;">
-            <label class="form-label required" style="font-size: 0.85rem;">Savol Matni</label>
-            <textarea 
-              id="q-text-${idx}" 
+          <div style="display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0;">
+            <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted); margin: 0;">Ball:</label>
+            <input 
+              type="number" 
+              id="wiz-grade-pts-${idx}" 
               class="form-control" 
-              style="min-height: 60px;" 
-              placeholder="${isClosed ? 'Masalan: Quyidagi shifrlash algoritmlaridan qaysi biri asimmetrik hisoblanadi?' : 'Masalan: Asimmetrik va simmetrik shifrlashning asosiy farqlarini misollar orqali tushuntiring.'}" 
-              required>${q.question_text || ''}</textarea>
+              style="width: 80px; text-align: center; font-weight: 800; font-size: 0.95rem; color: var(--primary);" 
+              value="${q.points}" 
+              min="0.5" 
+              step="0.5" 
+              oninput="TeacherView.handleScoreInputChange(${idx}, this.value)" 
+            />
           </div>
-
-          <!-- Savol turiga qarab maydonlar -->
-          ${isClosed ? `
-            <!-- Yopiq test variantlari -->
-            <div>
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <label class="form-label required" style="font-size: 0.825rem; margin: 0;">
-                  Javob Variantlari (To'g'ri javobni tanlash uchun variant yonidagi tugmani belgilang):
-                </label>
-                <button type="button" class="btn btn-outline btn-sm" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="TeacherView.addOption(${idx})">
-                  <i class="fas fa-plus"></i> Variant qo'shish
-                </button>
-              </div>
-
-              <div style="display: flex; flex-direction: column; gap: 0.4rem;">
-                ${q.options.map((opt, optIdx) => `
-                  <div class="option-row">
-                    <div class="option-key-label">${opt.option_key}</div>
-                    
-                    <input 
-                      type="text" 
-                      id="opt-text-${idx}-${optIdx}" 
-                      class="form-control" 
-                      style="font-size: 0.875rem;" 
-                      placeholder="${opt.option_key} varianti matni..." 
-                      value="${opt.option_text || ''}" 
-                      required 
-                    />
-
-                    <!-- To'g'ri javob radiosi -->
-                    <label class="option-radio-label ${opt.is_correct ? 'correct' : ''}" title="Ushbu variantni to'g'ri javob sifatida belgilash">
-                      <input 
-                        type="radio" 
-                        name="correct-opt-${idx}" 
-                        id="opt-radio-${idx}-${optIdx}" 
-                        ${opt.is_correct ? 'checked' : ''} 
-                        onchange="TeacherView.setCorrectOption(${idx}, ${optIdx})" 
-                      />
-                      <span>${opt.is_correct ? '<i class="fas fa-check"></i> To\'g\'ri' : 'Noto\'g\'ri'}</span>
-                    </label>
-
-                    <!-- Variantni o'chirish -->
-                    ${q.options.length > 2 ? `
-                      <button type="button" class="btn btn-secondary btn-sm" style="padding: 0.35rem 0.5rem; color: var(--danger);" title="Variantni o'chirish" onclick="TeacherView.removeOption(${idx}, ${optIdx})">
-                        <i class="fas fa-times"></i>
-                      </button>
-                    ` : ''}
-                  </div>
-                `).join('')}
-              </div>
-              <div class="form-hint" style="margin-top: 0.35rem;">
-                <span><i class="fas fa-shield-alt"></i> To'g'ri javob talabaga topshiriq vaqtida ko'rsatilmaydi, faqat backendda tekshirish uchun saqlanadi.</span>
-              </div>
-            </div>
-          ` : `
-            <!-- Ochiq savol ko'rsatmasi va namunaviy javobi -->
-            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-              <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label" style="font-size: 0.825rem;">Talaba uchun Javob Yozish Ko'rsatmasi (Ixtiyoriy)</label>
-                <input 
-                  type="text" 
-                  id="q-inst-${idx}" 
-                  class="form-control" 
-                  placeholder="Masalan: Kamida 3 ta asosiy farqni va real hayotdagi qo'llanishini keltiring." 
-                  value="${q.instruction || ''}" 
-                />
-              </div>
-
-              <div class="form-group" style="margin-bottom: 0;">
-                <label class="form-label" style="font-size: 0.825rem;">Namunaviy Javob yoki Baholash Mezonlari (Rubric)</label>
-                <textarea 
-                  id="q-sample-${idx}" 
-                  class="form-control" 
-                  style="min-height: 70px; background: #fffdf5; border-color: #fde68a;" 
-                  placeholder="AI va o'qituvchi baholashi uchun to'g'ri javob andozasi yoki asosiy mezonlar...">${q.sample_answer || ''}</textarea>
-                <div class="secret-teacher-note">
-                  <i class="fas fa-user-shield"></i> <strong>Maxfiy:</strong> Ushbu namunaviy javob va mezonlar talabaga ko'rsatilmaydi! U faqat AI semantik tahlili va o'qituvchi baholashi uchun ishlatiladi.
-                </div>
-              </div>
-            </div>
-          `}
-
         </div>
       `;
     }).join('');
-  },
 
-  // Oldindan ko'rish (Preview Modal)
-  showPreviewModal() {
-    this.syncQuestionsFromDOM();
+    return `
+      <div>
+        <!-- Umumiy ball kartasi -->
+        <div class="scoring-hero-card">
+          <div class="scoring-hero-left">
+            <span style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.85;">Umumiy Ball</span>
+            <div class="scoring-hero-score" id="scoring-total-display">${totalPts} ball</div>
+            <span style="font-size: 0.85rem; opacity: 0.9;">
+              Jami ${this.wizard.questions.length} ta savol (${closedCount} test, ${openCount} ochiq)
+            </span>
+          </div>
 
-    const title = document.getElementById('assign-title')?.value || 'Topshiriq Nomi';
-    const subject = document.getElementById('assign-subject')?.value || '';
-    const instructions = document.getElementById('assign-instructions')?.value || '';
-
-    let totalPoints = 0;
-    this.tempQuestions.forEach(q => totalPoints += (parseFloat(q.points) || 0));
-
-    const html = `
-      <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-        <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%); padding: 1.25rem 1.5rem; border-radius: var(--radius-lg); color: white;">
-          <div style="font-size: 0.8rem; opacity: 0.8; margin-bottom: 0.25rem;">TALABA KO'RISHI MUMKIN BO'LGAN REJIM (PREVIEW)</div>
-          <h2 style="font-size: 1.35rem; font-weight: 800; color: white; margin-bottom: 0.35rem;">${title}</h2>
-          <div style="font-size: 0.85rem; opacity: 0.9;">
-            ${subject ? `<span><strong>Fan:</strong> ${subject} &bull; </span>` : ''}
-            <span><strong>Jami:</strong> ${this.tempQuestions.length} ta savol &bull; ${Math.round(totalPoints * 10) / 10} ball</span>
+          <!-- Barchasiga bir xil ball berish vositasi -->
+          <div class="scoring-hero-right">
+            <span style="font-size: 0.8rem;">Har bir savolga:</span>
+            <input type="number" id="wiz-batch-points" class="form-control" style="width: 60px; height: 32px; padding: 0.2rem; text-align: center;" value="5" min="1" />
+            <button type="button" class="btn btn-secondary btn-sm" onclick="TeacherView.applyBatchPoints()">Teng taqsimlash</button>
           </div>
         </div>
 
-        ${instructions ? `
-          <div style="background: #f0fdf4; border-left: 4px solid #22c55e; padding: 0.75rem 1rem; border-radius: var(--radius-md); font-size: 0.875rem; color: #15803d;">
-            <strong><i class="fas fa-info-circle"></i> O'qituvchi ko'rsatmasi:</strong> ${instructions}
-          </div>
-        ` : ''}
-
-        <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-          ${this.tempQuestions.map((q, idx) => `
-            <div class="quiz-question-box">
-              <div class="quiz-question-header">
-                <div>
-                  <span style="font-weight: 800; color: var(--primary);">#${idx + 1}-savol</span>
-                  <span class="badge" style="background: var(--bg-alt); color: var(--text-main); margin-left: 0.5rem;">
-                    ${q.question_type === 'closed' ? 'Yopiq test' : 'Ochiq savol'}
-                  </span>
-                </div>
-                <span style="font-weight: 700; color: var(--primary); font-size: 0.9rem;">${q.points} ball</span>
-              </div>
-
-              <div style="font-size: 1rem; font-weight: 600; color: var(--text-main); margin-bottom: 1rem; line-height: 1.5;">
-                ${q.question_text || '<em style="color: var(--text-muted);">(Savol matni kiritilmagan)</em>'}
-              </div>
-
-              ${q.question_type === 'closed' ? `
-                <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-                  ${q.options.map(opt => `
-                    <div class="quiz-option-item">
-                      <div class="quiz-option-circle">${opt.option_key}</div>
-                      <div style="font-size: 0.925rem; color: var(--text-main);">${opt.option_text || '(Variant matni)'}</div>
-                    </div>
-                  `).join('')}
-                </div>
-              ` : `
-                ${q.instruction ? `
-                  <div style="background: #eff6ff; padding: 0.6rem 0.85rem; border-radius: var(--radius-md); font-size: 0.825rem; color: #1d4ed8; margin-bottom: 0.75rem;">
-                    <i class="fas fa-lightbulb"></i> <strong>Ko'rsatma:</strong> ${q.instruction}
-                  </div>
-                ` : ''}
-                <textarea class="form-control" style="min-height: 100px;" placeholder="Talaba javob yozish maydoni..." disabled></textarea>
-                <div class="form-hint"><span>Talaba bu yerga o'zining kengaytirilgan javobini yozadi.</span></div>
-              `}
-            </div>
-          `).join('')}
+        <!-- Savollar ro'yxati -->
+        <div style="margin-bottom: 1.5rem;">
+          ${rowsHtml}
         </div>
 
-        <div style="display: flex; justify-content: flex-end; margin-top: 1rem;">
-          <button type="button" class="btn btn-secondary" onclick="AppUI.closeModal()">Tahrirlashga Qaytish</button>
+        <!-- Pastki navigatsiya -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 1rem;">
+          <button type="button" class="btn btn-secondary" onclick="TeacherView.goToStep(2)">
+            <i class="fas fa-arrow-left"></i> Oldingisi
+          </button>
+          <button type="button" class="btn btn-primary" onclick="TeacherView.goToStep(4)">
+            Keyingisi: Yakunlash <i class="fas fa-arrow-right"></i>
+          </button>
         </div>
       </div>
     `;
-
-    AppUI.openModal('<i class="fas fa-eye text-primary"></i> Topshiriqning Talaba Uchun Ko\'rinishi', html, '', 'modal-lg');
   },
 
-  // Topshiriqni saqlash / e'lon qilish
-  async handleCreateAssignment(event) {
-    event.preventDefault();
-    this.syncQuestionsFromDOM();
+  handleScoreInputChange(idx, val) {
+    const pts = Math.max(0.5, parseFloat(val) || 0.5);
+    this.wizard.questions[idx].points = pts;
+    const total = this.calcTotalPoints();
+    const scoreDisplay = document.getElementById('scoring-total-display');
+    if (scoreDisplay) scoreDisplay.innerText = `${total} ball`;
+    this.updateSummaryBadges();
+  },
 
-    const title = document.getElementById('assign-title').value;
-    const subject = document.getElementById('assign-subject').value;
-    const group_id = document.getElementById('assign-group').value;
-    const instructions = document.getElementById('assign-instructions').value;
-    const due_date = document.getElementById('assign-due-date').value;
-    const content = document.getElementById('assign-content').value;
-    const fileInput = document.getElementById('assign-file-input');
-    const btn = document.getElementById('btn-save-assignment');
+  applyBatchPoints() {
+    const batchInput = document.getElementById('wiz-batch-points');
+    const pts = Math.max(0.5, parseFloat(batchInput ? batchInput.value : 5) || 5);
+    this.wizard.questions.forEach(q => q.points = pts);
+    this.renderCurrentStepPane();
+    AppUI.showToast('info', 'Ballar yangilandi', `Barcha savollarga ${pts} balldan belgilandi.`);
+  },
 
-    if (this.tempQuestions.length === 0) {
-      AppUI.showToast('warning', 'Savollar yo\'q', 'Topshiriqda kamida bitta savol bo\'lishi shart.');
+  // =========================================================================
+  // 4-BOSQICH: Yakunlash va Preview
+  // =========================================================================
+  getStep4Html() {
+    const b = this.wizard.basicInfo;
+    const groupObj = (this.cachedGroups || []).find(g => String(g.id) === String(b.group_id));
+    const groupName = groupObj ? groupObj.name : 'Guruh';
+    const totalPts = this.calcTotalPoints();
+
+    return `
+      <div>
+        <!-- Xulosa ma'lumotlari -->
+        <div class="summary-overview-grid">
+          <div class="summary-overview-box">
+            <div class="summary-overview-label">Topshiriq nomi</div>
+            <div class="summary-overview-val">${b.title || '-'}</div>
+          </div>
+          <div class="summary-overview-box">
+            <div class="summary-overview-label">Fan / Mavzu</div>
+            <div class="summary-overview-val">${b.subject || 'Belgilanmagan'}</div>
+          </div>
+          <div class="summary-overview-box">
+            <div class="summary-overview-label">Guruh</div>
+            <div class="summary-overview-val">${groupName}</div>
+          </div>
+          <div class="summary-overview-box">
+            <div class="summary-overview-label">Maksimal Ball</div>
+            <div class="summary-overview-val" style="color: var(--primary);">${totalPts} ball</div>
+          </div>
+        </div>
+
+        <!-- Talaba ko'rinishida Preview -->
+        <div style="background: white; border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem; margin-bottom: 1.5rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; border-bottom: 1px solid var(--border); padding-bottom: 0.75rem;">
+            <div style="font-weight: 700; font-size: 0.95rem; color: var(--text-main);">
+              <i class="fas fa-eye text-primary"></i> Talabalar ko'radigan ko'rinish (Oldindan ko'rish):
+            </div>
+            <span class="badge" style="background: var(--bg-alt); color: var(--text-muted); font-size: 0.75rem;">
+              Preview rejimi
+            </span>
+          </div>
+
+          ${b.instructions ? `
+            <div style="background: #f0fdf4; border-left: 3px solid #22c55e; padding: 0.65rem 1rem; border-radius: var(--radius-sm); margin-bottom: 1.25rem; font-size: 0.85rem; color: #15803d;">
+              <strong>Ko'rsatma:</strong> ${b.instructions}
+            </div>
+          ` : ''}
+
+          <div style="display: flex; flex-direction: column; gap: 1rem; max-height: 380px; overflow-y: auto; padding-right: 4px;">
+            ${this.wizard.questions.map((q, idx) => `
+              <div class="quiz-question-box" style="padding: 1rem; margin-bottom: 0;">
+                <div class="quiz-question-header" style="margin-bottom: 0.75rem; padding-bottom: 0.5rem;">
+                  <div>
+                    <span style="font-weight: 800; color: var(--primary);">#${idx + 1}-savol</span>
+                    <span class="badge" style="background: var(--bg-alt); color: var(--text-main); margin-left: 0.4rem; font-size: 0.75rem;">
+                      ${q.question_type === 'closed' ? 'Yopiq test' : 'Ochiq savol'}
+                    </span>
+                  </div>
+                  <span style="font-weight: 700; color: var(--primary); font-size: 0.85rem;">${q.points} ball</span>
+                </div>
+
+                <div style="font-size: 0.925rem; font-weight: 600; color: var(--text-main); margin-bottom: 0.75rem;">
+                  ${q.question_text || '(Savol matni kiritilmagan)'}
+                </div>
+
+                ${q.question_type === 'closed' ? `
+                  <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                    ${q.options.map(opt => `
+                      <div class="quiz-option-item" style="padding: 0.65rem 0.85rem; margin-bottom: 0;">
+                        <div class="quiz-option-circle" style="width: 24px; height: 24px; font-size: 0.75rem;">${opt.option_key}</div>
+                        <div style="font-size: 0.875rem; color: var(--text-main);">${opt.option_text || '(Variant)'}</div>
+                      </div>
+                    `).join('')}
+                  </div>
+                ` : `
+                  ${q.instruction ? `
+                    <div style="font-size: 0.8rem; color: #1d4ed8; margin-bottom: 0.5rem;">
+                      <i class="fas fa-info-circle"></i> ${q.instruction}
+                    </div>
+                  ` : ''}
+                  <textarea class="form-control" style="min-height: 60px;" placeholder="Talaba bu yerga o'z javobini yozadi..." disabled></textarea>
+                `}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <!-- Yakuniy amallar -->
+        <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 1.25rem;">
+          <button type="button" class="btn btn-secondary" onclick="TeacherView.goToStep(3)">
+            <i class="fas fa-arrow-left"></i> Oldingisi
+          </button>
+
+          <div style="display: flex; gap: 0.5rem;">
+            <button type="button" class="btn btn-secondary" onclick="AppUI.closeModal()">Bekor qilish</button>
+            <button type="button" class="btn btn-primary" id="btn-save-wizard" onclick="TeacherView.saveWizardAssignment()">
+              <i class="fas fa-check"></i> ${this.wizard.editingAssignmentId ? 'O\'zgarishlarni Saqlash' : 'Saqlash va Talabalarga Yuborish'}
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  },
+
+  // =========================================================================
+  // TOPSHIRIQNI SAQLASH (Create / Update API)
+  // =========================================================================
+  async saveWizardAssignment() {
+    this.syncCurrentStepState();
+
+    const b = this.wizard.basicInfo;
+    const questions = this.wizard.questions;
+    const btn = document.getElementById('btn-save-wizard');
+
+    if (!b.title || !b.title.trim()) {
+      AppUI.showToast('warning', 'Topshiriq nomi', 'Topshiriq nomini kiriting.');
+      this.goToStep(1);
       return;
     }
 
-    // Har bir savolni validatsiya qilish
-    for (let i = 0; i < this.tempQuestions.length; i++) {
-      const q = this.tempQuestions[i];
-      if (!q.question_text || !q.question_text.trim()) {
-        AppUI.showToast('warning', 'Savol matni', `${i + 1}-savol matnini kiriting.`);
-        return;
-      }
-      if (q.question_type === 'closed') {
-        const emptyOpt = q.options.some(opt => !opt.option_text || !opt.option_text.trim());
-        if (emptyOpt) {
-          AppUI.showToast('warning', 'Variant matni', `${i + 1}-yopiq testda barcha variantlarni to'ldiring.`);
-          return;
-        }
-        const hasCorrect = q.options.some(opt => opt.is_correct === 1);
-        if (!hasCorrect) {
-          AppUI.showToast('warning', 'To\'g\'ri javob', `${i + 1}-yopiq testda to'g'ri javobni tanlang.`);
-          return;
-        }
-      }
+    if (!b.group_id) {
+      AppUI.showToast('warning', 'Guruh tanlang', 'Guruhni tanlang.');
+      this.goToStep(1);
+      return;
     }
 
-    btn.disabled = true;
-    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saqlanmoqda...`;
+    if (questions.length === 0) {
+      AppUI.showToast('warning', 'Savollar yo\'q', 'Kamida bitta savol bo\'lishi shart.');
+      this.goToStep(2);
+      return;
+    }
+
+    // Savollarni formatlash
+    const cleanQuestions = questions.map((q, idx) => ({
+      question_type: q.question_type,
+      question_text: q.question_text.trim(),
+      points: Math.max(0.5, parseFloat(q.points) || 1),
+      order_index: idx,
+      instruction: q.instruction ? q.instruction.trim() : null,
+      sample_answer: q.sample_answer ? q.sample_answer.trim() : null,
+      options: q.question_type === 'closed' ? q.options.map((opt, optIdx) => ({
+        option_key: opt.option_key || String.fromCharCode(65 + optIdx),
+        option_text: (opt.option_text || '').trim(),
+        is_correct: opt.is_correct === 1 ? 1 : 0
+      })) : []
+    }));
+
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Saqlanmoqda...`;
+    }
 
     try {
       const formData = new FormData();
-      formData.append('title', title);
-      formData.append('subject', subject);
-      formData.append('group_id', group_id);
-      formData.append('instructions', instructions);
-      if (due_date) formData.append('due_date', due_date);
-      formData.append('content', content);
-      formData.append('questions', JSON.stringify(this.tempQuestions));
+      formData.append('title', b.title.trim());
+      formData.append('subject', b.subject ? b.subject.trim() : '');
+      formData.append('group_id', b.group_id);
+      formData.append('instructions', b.instructions ? b.instructions.trim() : '');
+      if (b.start_date) formData.append('start_date', b.start_date);
+      if (b.due_date) formData.append('due_date', b.due_date);
+      formData.append('content', b.content ? b.content.trim() : "Mavzu bo'yicha mustaqil topshiriq materiallari.");
+      formData.append('questions', JSON.stringify(cleanQuestions));
 
-      if (fileInput && fileInput.files && fileInput.files.length > 0) {
-        formData.append('file', fileInput.files[0]);
+      if (this.wizard.attachedFile) {
+        formData.append('file', this.wizard.attachedFile);
       }
 
-      const res = await Api.assignments.create(formData);
+      let res;
+      if (this.wizard.editingAssignmentId) {
+        res = await Api.assignments.update(this.wizard.editingAssignmentId, formData);
+        AppUI.showToast('success', 'Muvaffaqiyatli saqlandi', 'Topshiriq o\'zgarishlari muvaffaqiyatli saqlandi.');
+      } else {
+        res = await Api.assignments.create(formData);
+        AppUI.showToast('success', 'Muvaffaqiyatli saqlandi', 'Topshiriq saqlandi va talabalarga yuborildi!');
+      }
 
-      AppUI.showToast('success', 'Muvaffaqiyatli!', `Topshiriq ${this.tempQuestions.length} ta savol bilan e'lon qilindi.`);
       AppUI.closeModal();
-      this.selectedAssignmentId = res.assignment.id;
+      if (res && res.assignment) {
+        this.selectedAssignmentId = res.assignment.id;
+      }
       await this.loadAssignments();
     } catch (err) {
-      AppUI.showToast('danger', 'Xatolik', err.message);
+      AppUI.showToast('danger', 'Xatolik', err.message || 'Saqlashda xatolik yuz berdi.');
     } finally {
-      btn.disabled = false;
-      btn.innerHTML = `<i class="fas fa-check"></i> Topshiriqni E'lon Qilish`;
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fas fa-check"></i> Saqlash`;
+      }
     }
   },
 
@@ -1037,7 +1409,7 @@ const TeacherView = {
     if (!confirm("Haqiqatan ham bu topshiriqni va unga kelgan barcha javoblarni o'chirmoqchimisiz?")) return;
     try {
       await Api.assignments.delete(id);
-      AppUI.showToast('success', 'O\'chirildi', 'Topshiriq o\'chirildi.');
+      AppUI.showToast('success', 'O\'chirildi', 'Topshiriq muvaffaqiyatli o\'chirildi.');
       this.selectedAssignmentId = null;
       await this.loadAssignments();
     } catch (err) {
@@ -1046,7 +1418,7 @@ const TeacherView = {
   },
 
   // =========================================================================
-  // TALABA JAVOBINI KO'RISH VA BAHOLASH MODALI (Show Grade Modal)
+  // TALABA JAVOBINI KO'RISH VA BAHOLASH (Show Grade Modal)
   // =========================================================================
 
   async showGradeModal(submissionId) {
@@ -1059,7 +1431,6 @@ const TeacherView = {
       let answersContentHtml = '';
 
       if (isDynamic) {
-        // Dinamik savollar bo'yicha baholash
         answersContentHtml = `
           <div style="display: flex; flex-direction: column; gap: 1.25rem;">
             <div style="font-weight: 700; font-size: 1rem; color: var(--text-main); margin-bottom: 0.25rem;">
@@ -1074,7 +1445,6 @@ const TeacherView = {
 
               return `
                 <div class="grade-answer-card ${isClosed ? (isCorrect ? 'correct-card' : 'incorrect-card') : 'open-card'}">
-                  <!-- Header -->
                   <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
                     <div>
                       <span style="font-weight: 800; color: var(--text-main);">#${idx + 1}-savol:</span>
@@ -1100,13 +1470,11 @@ const TeacherView = {
                     </div>
                   </div>
 
-                  <!-- Savol matni -->
                   <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin-bottom: 0.75rem;">
                     ${ans.question_text}
                   </div>
 
                   ${isClosed ? `
-                    <!-- Yopiq test variantlari holati -->
                     <div style="background: var(--bg-alt); padding: 0.75rem 1rem; border-radius: var(--radius-md); margin-bottom: 0.5rem;">
                       <div style="font-size: 0.85rem; margin-bottom: 0.4rem;">
                         <strong>Talaba tanlagan variant:</strong> 
@@ -1129,7 +1497,6 @@ const TeacherView = {
                       ` : ''}
                     </div>
                   ` : `
-                    <!-- Ochiq savol javobi va AI tahlili -->
                     <div style="margin-bottom: 0.75rem;">
                       <label style="font-size: 0.825rem; font-weight: 600; color: var(--text-muted);"><i class="fas fa-pen"></i> Talabaning Javob Matni:</label>
                       <div style="background: white; border: 1px solid var(--border); border-radius: var(--radius-md); padding: 0.85rem 1rem; font-size: 0.9rem; line-height: 1.6; max-height: 140px; overflow-y: auto;">
@@ -1143,7 +1510,6 @@ const TeacherView = {
                       </div>
                     ` : ''}
 
-                    <!-- AI Semantik Tahlili kartasi -->
                     <div class="ai-report-card" style="margin-bottom: 0.85rem;">
                       <div class="ai-header" style="padding-bottom: 0.5rem; margin-bottom: 0.5rem;">
                         <div class="ai-brand-badge" style="font-size: 0.75rem;">
@@ -1177,7 +1543,6 @@ const TeacherView = {
                       ` : ''}
                     </div>
 
-                    <!-- O'qituvchining ushbu savol uchun bahosi -->
                     <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 0.75rem 1rem; border-radius: var(--radius-md); display: grid; grid-template-columns: 180px 1fr; gap: 0.75rem; align-items: center;">
                       <div>
                         <label style="font-size: 0.8rem; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 0.25rem;">
@@ -1224,7 +1589,6 @@ const TeacherView = {
           </div>
         `;
       } else {
-        // Eski formatdagi topshiriq (bitta umumiy matn)
         answersContentHtml = `
           <div>
             <label class="form-label" style="color: var(--primary);">
@@ -1264,8 +1628,6 @@ const TeacherView = {
 
       const html = `
         <div style="display: flex; flex-direction: column; gap: 1.25rem;">
-          
-          <!-- Talaba profili ma'lumotlari -->
           <div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-alt); padding: 0.85rem 1.25rem; border-radius: var(--radius-md);">
             <div>
               <div style="font-weight: 700; font-size: 1rem; color: var(--text-main);">${s.student_name}</div>
@@ -1276,17 +1638,14 @@ const TeacherView = {
             </div>
           </div>
 
-          <!-- Savollar va javoblar bo'limi -->
           ${answersContentHtml}
 
-          <!-- Qayta tahlil tugmasi -->
           <div style="display: flex; justify-content: flex-end;">
             <button type="button" class="btn btn-outline btn-sm" onclick="TeacherView.reanalyze(${s.id})">
               <i class="fas fa-redo"></i> AI Bilan Qayta Tahlil Qilish
             </button>
           </div>
 
-          <!-- O'qituvchi yakuniy bahoni tasdiqlash bo'limi -->
           <form id="form-grade-submission" onsubmit="TeacherView.handleGradeSubmit(event, ${s.id})" style="border-top: 2px dashed var(--border); padding-top: 1.25rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.85rem;">
               <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--text-main); margin: 0;">
@@ -1353,7 +1712,6 @@ const TeacherView = {
     }
   },
 
-  // Alohida savollar bahosidan jami ballni hisoblash
   calcTotalGradeFromInputs() {
     const inputs = document.querySelectorAll('.q-grade-input');
     if (!inputs || inputs.length === 0) return;
@@ -1369,14 +1727,12 @@ const TeacherView = {
     }
   },
 
-  // Bahoni saqlash
   async handleGradeSubmit(event, submissionId) {
     event.preventDefault();
     const teacher_score = document.getElementById('grade-score').value;
     const teacher_feedback = document.getElementById('grade-feedback').value;
     const btn = document.getElementById('btn-save-grade');
 
-    // Savollar bo'yicha baholarni to'plash
     const questionInputs = document.querySelectorAll('.q-grade-input');
     const question_grades = [];
     questionInputs.forEach(inp => {
@@ -1432,5 +1788,10 @@ const TeacherView = {
     } catch (err) {
       AppUI.showToast('danger', 'Xatolik', err.message);
     }
+  },
+
+  // Eskirgan chaqiruvlarni qo'llab-quvvatlash uchun alias
+  showCreateAssignmentModal() {
+    this.openCreateWizard();
   }
 };

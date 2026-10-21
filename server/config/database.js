@@ -96,6 +96,9 @@ async function initDatabase() {
     if (!colNames.includes('instructions')) {
       await db.runAsync("ALTER TABLE assignments ADD COLUMN instructions TEXT DEFAULT NULL");
     }
+    if (!colNames.includes('start_date')) {
+      await db.runAsync("ALTER TABLE assignments ADD COLUMN start_date DATETIME DEFAULT NULL");
+    }
     if (!colNames.includes('due_date')) {
       await db.runAsync("ALTER TABLE assignments ADD COLUMN due_date DATETIME DEFAULT NULL");
     }
