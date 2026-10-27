@@ -138,6 +138,7 @@ async function initDatabase() {
           file_size INTEGER DEFAULT NULL,
           attempt_number INTEGER DEFAULT 1,
           started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          ai_report TEXT DEFAULT NULL,
           UNIQUE(assignment_id, student_id, attempt_number)
         );
       `);
@@ -181,35 +182,30 @@ async function initDatabase() {
           file_size INTEGER DEFAULT NULL,
           attempt_number INTEGER DEFAULT 1,
           started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          ai_report TEXT DEFAULT NULL,
           UNIQUE(assignment_id, student_id, attempt_number)
         );
       `);
-    } else {
-      const subInfo = await db.allAsync("PRAGMA table_info(submissions)");
-      const subCols = subInfo.map(c => c.name);
-      if (!subCols.includes('total_score')) {
-        await db.runAsync("ALTER TABLE submissions ADD COLUMN total_score REAL DEFAULT NULL");
-      }
-      if (!subCols.includes('max_score')) {
-        await db.runAsync("ALTER TABLE submissions ADD COLUMN max_score REAL DEFAULT NULL");
-      }
-      if (!subCols.includes('file_path')) {
-        await db.runAsync("ALTER TABLE submissions ADD COLUMN file_path TEXT DEFAULT NULL");
-      }
-      if (!subCols.includes('file_name')) {
-        await db.runAsync("ALTER TABLE submissions ADD COLUMN file_name TEXT DEFAULT NULL");
-      }
-      if (!subCols.includes('file_size')) {
-        await db.runAsync("ALTER TABLE submissions ADD COLUMN file_size INTEGER DEFAULT NULL");
-      }
-      if (!subCols.includes('attempt_number')) {
-        await db.runAsync("ALTER TABLE submissions ADD COLUMN attempt_number INTEGER DEFAULT 1");
-      }
-      if (!subCols.includes('started_at')) {
-        await db.runAsync("ALTER TABLE submissions ADD COLUMN started_at DATETIME DEFAULT CURRENT_TIMESTAMP");
-      }
-      if (!subCols.includes('ai_report')) {
-        await db.runAsync("ALTER TABLE submissions ADD COLUMN ai_report TEXT DEFAULT NULL");
+    }
+
+    // Har qanday holatda barcha zaruriy ustunlar mavjudligini kafolatlash (Idempotent migratsiya)
+    const subInfo = await db.allAsync("PRAGMA table_info(submissions)");
+    const subCols = (subInfo || []).map(c => c.name);
+    const requiredSubCols = [
+      { name: 'total_score', type: 'REAL DEFAULT NULL' },
+      { name: 'max_score', type: 'REAL DEFAULT NULL' },
+      { name: 'file_path', type: 'TEXT DEFAULT NULL' },
+      { name: 'file_name', type: 'TEXT DEFAULT NULL' },
+      { name: 'file_size', type: 'INTEGER DEFAULT NULL' },
+      { name: 'attempt_number', type: 'INTEGER DEFAULT 1' },
+      { name: 'started_at', type: 'DATETIME DEFAULT CURRENT_TIMESTAMP' },
+      { name: 'ai_report', type: 'TEXT DEFAULT NULL' }
+    ];
+
+    for (const col of requiredSubCols) {
+      if (!subCols.includes(col.name)) {
+        await db.runAsync(`ALTER TABLE submissions ADD COLUMN ${col.name} ${col.type}`);
+        console.log(`✅ Submissions jadvaliga zaruriy '${col.name}' ustuni muvaffaqiyatli qo'shildi.`);
       }
     }
   } catch (subMigErr) {

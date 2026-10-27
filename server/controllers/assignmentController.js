@@ -370,74 +370,85 @@ async function createAssignment(req, res) {
       totalPoints = 100;
     }
 
-    // 1. Topshiriqni yaratish
-    const result = await db.runAsync(`
-      INSERT INTO assignments (
-        teacher_id, group_id, title, subject, content, open_question, instructions, start_date, due_date,
-        total_points, has_dynamic_questions, attempts_limit, time_limit_minutes, file_path, file_name, file_size
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      teacher_id,
-      group_id,
-      title.trim(),
-      subject ? subject.trim() : null,
-      content.trim(),
-      open_question.trim(),
-      instructions ? instructions.trim() : null,
-      start_date || null,
-      due_date || null,
-      totalPoints,
-      hasDynamicQuestions ? 1 : 0,
-      attemptsLimit,
-      timeLimitMinutes,
-      filePath,
-      fileName,
-      fileSize
-    ]);
+    // Tranzaksiya bilan topshiriq va barcha savollarni atomar saqlash
+    await db.runAsync('BEGIN TRANSACTION;');
+    let assignmentId = null;
 
-    const assignmentId = result.lastID;
+    try {
+      // 1. Topshiriqni yaratish
+      const result = await db.runAsync(`
+        INSERT INTO assignments (
+          teacher_id, group_id, title, subject, content, open_question, instructions, start_date, due_date,
+          total_points, has_dynamic_questions, attempts_limit, time_limit_minutes, file_path, file_name, file_size
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        teacher_id,
+        group_id,
+        title.trim(),
+        subject ? subject.trim() : null,
+        content.trim(),
+        open_question.trim(),
+        instructions ? instructions.trim() : null,
+        start_date || null,
+        due_date || null,
+        totalPoints,
+        hasDynamicQuestions ? 1 : 0,
+        attemptsLimit,
+        timeLimitMinutes,
+        filePath,
+        fileName,
+        fileSize
+      ]);
 
-    // 2. Dinamik savollarni saqlash
-    if (hasDynamicQuestions) {
-      for (let i = 0; i < questions.length; i++) {
-        const q = questions[i];
-        const pts = Math.max(0.5, parseFloat(q.points) || 1);
+      assignmentId = result.lastID;
 
-        const qRes = await db.runAsync(`
-          INSERT INTO assignment_questions (
-            assignment_id, question_type, question_text, points, order_index, instruction, sample_answer
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [
-          assignmentId,
-          q.question_type,
-          q.question_text.trim(),
-          pts,
-          i,
-          q.instruction ? q.instruction.trim() : null,
-          q.sample_answer ? q.sample_answer.trim() : null
-        ]);
+      // 2. Dinamik savollarni saqlash
+      if (hasDynamicQuestions) {
+        for (let i = 0; i < questions.length; i++) {
+          const q = questions[i];
+          const pts = Math.max(0.5, parseFloat(q.points) || 1);
 
-        const questionId = qRes.lastID;
+          const qRes = await db.runAsync(`
+            INSERT INTO assignment_questions (
+              assignment_id, question_type, question_text, points, order_index, instruction, sample_answer
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+          `, [
+            assignmentId,
+            q.question_type,
+            q.question_text.trim(),
+            pts,
+            i,
+            q.instruction ? q.instruction.trim() : null,
+            q.sample_answer ? q.sample_answer.trim() : null
+          ]);
 
-        if (q.question_type === 'closed' && Array.isArray(q.options)) {
-          for (let optIdx = 0; optIdx < q.options.length; optIdx++) {
-            const opt = q.options[optIdx];
-            const isCorrect = (opt.is_correct === true || opt.is_correct === 1 || opt.is_correct === '1') ? 1 : 0;
-            const key = opt.option_key || String.fromCharCode(65 + optIdx);
+          const questionId = qRes.lastID;
 
-            await db.runAsync(`
-              INSERT INTO question_options (question_id, option_key, option_text, is_correct, order_index)
-              VALUES (?, ?, ?, ?, ?)
-            `, [
-              questionId,
-              key,
-              (opt.option_text || '').trim(),
-              isCorrect,
-              optIdx
-            ]);
+          if (q.question_type === 'closed' && Array.isArray(q.options)) {
+            for (let optIdx = 0; optIdx < q.options.length; optIdx++) {
+              const opt = q.options[optIdx];
+              const isCorrect = (opt.is_correct === true || opt.is_correct === 1 || opt.is_correct === '1') ? 1 : 0;
+              const key = opt.option_key || String.fromCharCode(65 + optIdx);
+
+              await db.runAsync(`
+                INSERT INTO question_options (question_id, option_key, option_text, is_correct, order_index)
+                VALUES (?, ?, ?, ?, ?)
+              `, [
+                questionId,
+                key,
+                (opt.option_text || '').trim(),
+                isCorrect,
+                optIdx
+              ]);
+            }
           }
         }
       }
+
+      await db.runAsync('COMMIT;');
+    } catch (txErr) {
+      await db.runAsync('ROLLBACK;');
+      throw txErr;
     }
 
     const newAssignment = await db.getAsync('SELECT * FROM assignments WHERE id = ?', [assignmentId]);
@@ -534,91 +545,99 @@ async function updateAssignment(req, res) {
     let totalPoints = assignment.total_points || 100;
     let hasDynamic = assignment.has_dynamic_questions;
 
-    if (Array.isArray(questions) && questions.length > 0) {
-      if (!hasSubmissions) {
-        totalPoints = 0;
-        const oldQuestions = await db.allAsync('SELECT id FROM assignment_questions WHERE assignment_id = ?', [id]);
-        for (const oq of oldQuestions) {
-          await db.runAsync('DELETE FROM question_options WHERE question_id = ?', [oq.id]);
-        }
-        await db.runAsync('DELETE FROM assignment_questions WHERE assignment_id = ?', [id]);
+    await db.runAsync('BEGIN TRANSACTION;');
+    try {
+      if (Array.isArray(questions) && questions.length > 0) {
+        if (!hasSubmissions) {
+          totalPoints = 0;
+          const oldQuestions = await db.allAsync('SELECT id FROM assignment_questions WHERE assignment_id = ?', [id]);
+          for (const oq of oldQuestions) {
+            await db.runAsync('DELETE FROM question_options WHERE question_id = ?', [oq.id]);
+          }
+          await db.runAsync('DELETE FROM assignment_questions WHERE assignment_id = ?', [id]);
 
-        for (let i = 0; i < questions.length; i++) {
-          const q = questions[i];
-          const pts = Math.max(0.5, parseFloat(q.points) || 1);
-          totalPoints += pts;
+          for (let i = 0; i < questions.length; i++) {
+            const q = questions[i];
+            const pts = Math.max(0.5, parseFloat(q.points) || 1);
+            totalPoints += pts;
 
-          const qRes = await db.runAsync(`
-            INSERT INTO assignment_questions (
-              assignment_id, question_type, question_text, points, order_index, instruction, sample_answer
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
-          `, [
-            id,
-            q.question_type,
-            q.question_text.trim(),
-            pts,
-            i,
-            q.instruction ? q.instruction.trim() : null,
-            q.sample_answer ? q.sample_answer.trim() : null
-          ]);
+            const qRes = await db.runAsync(`
+              INSERT INTO assignment_questions (
+                assignment_id, question_type, question_text, points, order_index, instruction, sample_answer
+              ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            `, [
+              id,
+              q.question_type,
+              q.question_text.trim(),
+              pts,
+              i,
+              q.instruction ? q.instruction.trim() : null,
+              q.sample_answer ? q.sample_answer.trim() : null
+            ]);
 
-          if (q.question_type === 'closed' && Array.isArray(q.options)) {
-            for (let optIdx = 0; optIdx < q.options.length; optIdx++) {
-              const opt = q.options[optIdx];
-              const isCorrect = (opt.is_correct === true || opt.is_correct === 1 || opt.is_correct === '1') ? 1 : 0;
-              await db.runAsync(`
-                INSERT INTO question_options (question_id, option_key, option_text, is_correct, order_index)
-                VALUES (?, ?, ?, ?, ?)
-              `, [
-                qRes.lastID,
-                opt.option_key || String.fromCharCode(65 + optIdx),
-                (opt.option_text || '').trim(),
-                isCorrect,
-                optIdx
-              ]);
+            if (q.question_type === 'closed' && Array.isArray(q.options)) {
+              for (let optIdx = 0; optIdx < q.options.length; optIdx++) {
+                const opt = q.options[optIdx];
+                const isCorrect = (opt.is_correct === true || opt.is_correct === 1 || opt.is_correct === '1') ? 1 : 0;
+                await db.runAsync(`
+                  INSERT INTO question_options (question_id, option_key, option_text, is_correct, order_index)
+                  VALUES (?, ?, ?, ?, ?)
+                `, [
+                  qRes.lastID,
+                  opt.option_key || String.fromCharCode(65 + optIdx),
+                  (opt.option_text || '').trim(),
+                  isCorrect,
+                  optIdx
+                ]);
+              }
             }
           }
+          hasDynamic = 1;
         }
-        hasDynamic = 1;
       }
-    }
 
-    await db.runAsync(`
-      UPDATE assignments SET
-        title = ?,
-        subject = ?,
-        group_id = ?,
-        content = ?,
-        open_question = ?,
-        instructions = ?,
-        start_date = ?,
-        due_date = ?,
-        total_points = ?,
-        has_dynamic_questions = ?,
-        attempts_limit = ?,
-        time_limit_minutes = ?,
-        file_path = ?,
-        file_name = ?,
-        file_size = ?
-      WHERE id = ?
-    `, [
-      title ? title.trim() : assignment.title,
-      subject !== undefined ? (subject ? subject.trim() : null) : assignment.subject,
-      group_id ? group_id : assignment.group_id,
-      content ? content.trim() : assignment.content,
-      open_question ? open_question.trim() : assignment.open_question,
-      instructions !== undefined ? (instructions ? instructions.trim() : null) : assignment.instructions,
-      start_date !== undefined ? start_date : assignment.start_date,
-      due_date !== undefined ? due_date : assignment.due_date,
-      totalPoints,
-      hasDynamic,
-      attemptsLimit,
-      timeLimitMinutes,
-      filePath,
-      fileName,
-      fileSize,
-      id
-    ]);
+      await db.runAsync(`
+        UPDATE assignments SET
+          title = ?,
+          subject = ?,
+          group_id = ?,
+          content = ?,
+          open_question = ?,
+          instructions = ?,
+          start_date = ?,
+          due_date = ?,
+          total_points = ?,
+          has_dynamic_questions = ?,
+          attempts_limit = ?,
+          time_limit_minutes = ?,
+          file_path = ?,
+          file_name = ?,
+          file_size = ?
+        WHERE id = ?
+      `, [
+        title ? title.trim() : assignment.title,
+        subject !== undefined ? (subject ? subject.trim() : null) : assignment.subject,
+        group_id ? group_id : assignment.group_id,
+        content ? content.trim() : assignment.content,
+        open_question ? open_question.trim() : assignment.open_question,
+        instructions !== undefined ? (instructions ? instructions.trim() : null) : assignment.instructions,
+        start_date !== undefined ? start_date : assignment.start_date,
+        due_date !== undefined ? due_date : assignment.due_date,
+        totalPoints,
+        hasDynamic,
+        attemptsLimit,
+        timeLimitMinutes,
+        filePath,
+        fileName,
+        fileSize,
+        id
+      ]);
+
+      await db.runAsync('COMMIT;');
+    } catch (txErr) {
+      await db.runAsync('ROLLBACK;');
+      throw txErr;
+    }
 
     const updated = await db.getAsync('SELECT * FROM assignments WHERE id = ?', [id]);
 

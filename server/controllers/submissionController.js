@@ -147,10 +147,13 @@ async function submitAnswer(req, res) {
       return res.status(404).json({ success: false, message: 'Topshiriq topilmadi.' });
     }
 
-    // Talabaning guruhi mos kelishini tekshirish
-    if (req.user.group_id !== assignment.group_id) {
-      if (req.file) cleanupUploadedFile(req.file.path);
-      return res.status(403).json({ success: false, message: 'Siz faqat o\'z guruhingizga berilgan topshiriqlarni topshira olasiz.' });
+    // Talabaning guruhi mos kelishini tekshirish (Type-safe tekshiruv)
+    if (Number(req.user.group_id) !== Number(assignment.group_id)) {
+      const freshUser = await db.getAsync('SELECT group_id FROM users WHERE id = ?', [student_id]);
+      if (!freshUser || Number(freshUser.group_id) !== Number(assignment.group_id)) {
+        if (req.file) cleanupUploadedFile(req.file.path);
+        return res.status(403).json({ success: false, message: 'Siz faqat o\'z guruhingizga berilgan topshiriqlarni topshira olasiz.' });
+      }
     }
 
     // Urinishlar soni cheklovi tekshiruvi
@@ -360,6 +363,11 @@ async function submitAnswer(req, res) {
         fileText: extractedFileText
       });
 
+      // Tranzaksiya orqali atomik saqlash
+      await db.runAsync('BEGIN TRANSACTION');
+
+      const safeStudentAnswer = (student_answer || '').trim() || (fileName ? `[Yuklangan fayl: ${fileName}]` : 'Topshiriq javoblari belgilandi');
+
       // 1. Submissions jadvaliga yozish
       const insertSub = await db.runAsync(`
         INSERT INTO submissions (
@@ -370,7 +378,7 @@ async function submitAnswer(req, res) {
       `, [
         assignment_id,
         student_id,
-        (student_answer || '').trim() || (fileName ? `[Yuklangan fayl: ${fileName}]` : ''),
+        safeStudentAnswer,
         synthesis.summary,
         synthesis.gaps,
         synthesis.recommended_score,
@@ -410,6 +418,8 @@ async function submitAnswer(req, res) {
       if (activeSession) {
         await db.runAsync('UPDATE test_sessions SET is_completed = 1 WHERE id = ?', [activeSession.id]);
       }
+
+      await db.runAsync('COMMIT');
 
       const createdSubmission = await db.getAsync(`
         SELECT s.*, a.title as assignment_title 
@@ -454,7 +464,7 @@ async function submitAnswer(req, res) {
         };
       }
 
-      const storedAnswer = rawAnswer || (fileName ? `[Yuklangan fayl: ${fileName}]` : '');
+      const storedAnswer = rawAnswer || (fileName ? `[Yuklangan fayl: ${fileName}]` : 'Topshiriq javobi kiritildi');
 
       let synthesisReport = null;
       if (status !== 'pending' && aiResult) {
@@ -467,6 +477,8 @@ async function submitAnswer(req, res) {
           source: aiResult.source || 'openai-gpt-4o-mini'
         });
       }
+
+      await db.runAsync('BEGIN TRANSACTION');
 
       const insertResult = await db.runAsync(`
         INSERT INTO submissions (
@@ -496,6 +508,8 @@ async function submitAnswer(req, res) {
         await db.runAsync('UPDATE test_sessions SET is_completed = 1 WHERE id = ?', [activeSession.id]);
       }
 
+      await db.runAsync('COMMIT');
+
       const createdSubmission = await db.getAsync(`
         SELECT s.*, a.title as assignment_title 
         FROM submissions s 
@@ -513,9 +527,35 @@ async function submitAnswer(req, res) {
     }
 
   } catch (error) {
+    try { await db.runAsync('ROLLBACK'); } catch (_) {}
     if (req.file) cleanupUploadedFile(req.file.path);
-    console.error('submitAnswer xatosi:', error);
-    return res.status(500).json({ success: false, message: 'Javobni topshirishda server xatoligi yuz berdi.' });
+
+    console.error('❌ [submitAnswer xatosi tafsilotlari]:', {
+      message: error.message,
+      code: error.code,
+      assignment_id: req.body && req.body.assignment_id,
+      student_id: req.user && req.user.id,
+      stack: error.stack
+    });
+
+    if (error.message && error.message.includes('UNIQUE constraint failed')) {
+      return res.status(400).json({
+        success: false,
+        message: 'Ushbu topshiriq uchun javob allaqachon topshirilgan yoki ruxsat etilgan urinishlar soni tugagan.'
+      });
+    }
+
+    if (error.message && error.message.includes('no column named')) {
+      return res.status(500).json({
+        success: false,
+        message: 'Ma\'lumotlar bazasi sxemasida yangilanish talab etiladi. Tizim avtomatik yangilanmoqda, iltimos sahifani yangilang.'
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: 'Javobni topshirishda server xatoligi yuz berdi.'
+    });
   }
 }
 

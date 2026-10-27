@@ -396,24 +396,37 @@ textarea.form-control {
   max-width: 850px;
 }
 
+.modal-container.modal-xl {
+  max-width: 1050px;
+  width: 95vw;
+  height: 90vh;
+}
+
 .modal-overlay.active .modal-container {
   transform: scale(1);
 }
 
 .modal-header {
+  flex-shrink: 0;
   padding: 1.25rem 1.5rem;
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: space-between;
+  background: white;
 }
 
 .modal-body {
-  padding: 1.5rem;
-  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .modal-footer {
+  flex-shrink: 0;
   padding: 1rem 1.5rem;
   border-top: 1px solid var(--border);
   background: var(--bg-main);
@@ -1119,6 +1132,67 @@ textarea.form-control {
   border-color: #cbd5e1;
 }
 
+/* Savol turi boshqaruv elementi (Type Switcher Select) */
+.question-type-select {
+  font-weight: 700;
+  font-size: 0.8rem;
+  border-radius: var(--radius-sm);
+  padding: 0.25rem 1.6rem 0.25rem 0.6rem;
+  cursor: pointer;
+  transition: var(--transition);
+  border: 1px solid var(--border);
+  outline: none;
+}
+.question-type-select.type-closed {
+  background-color: #eef2ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+}
+.question-type-select.type-open {
+  background-color: #f0f9ff;
+  color: #0369a1;
+  border-color: #bae6fd;
+}
+
+/* Nazariy material fayli kartasi */
+.theory-file-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-alt);
+  padding: 0.85rem 1.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  gap: 1rem;
+}
+.theory-upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius-md);
+  padding: 1.5rem 1rem;
+  text-align: center;
+  background: #fafafa;
+  transition: var(--transition);
+  cursor: pointer;
+}
+.theory-upload-zone:hover {
+  border-color: var(--primary);
+  background: #f8fafc;
+}
+
+/* 2-bosqich xulosa kartasi */
+.step2-summary-header {
+  background: #f8fafc;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
 /* Baholash oynasidagi ball kartasi */
 .scoring-hero-card {
   background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
@@ -1361,3 +1435,111 @@ textarea.form-control {
 .autosave-indicator.saved { color: var(--success); }
 .autosave-indicator.saving { color: var(--primary); }
 .autosave-indicator.offline { color: var(--warning); }
+
+
+/* 3-Bosqichli Wizard uchun qat'iy va moslashuvchan konteyner */
+.wizard-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  flex: 1;
+}
+
+#wizard-pane-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 0.35rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.wizard-actions-bar {
+  flex-shrink: 0;
+  padding-top: 1rem;
+  margin-top: auto;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  gap: 0.75rem;
+}
+
+/* 1-bosqich ixcham responsive grid */
+.step1-row-grid-2 {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.step1-row-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 640px) {
+  .step1-row-grid-2,
+  .step1-row-grid-3 {
+    grid-template-columns: 1fr;
+  }
+  .modal-container.modal-xl {
+    height: 95vh;
+    max-height: 95vh;
+    width: 98vw;
+  }
+}
+
+/* 2-bosqich: Yopiq test javob variantlari qatori */
+.quiz-builder-option-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-bottom: 0.45rem;
+}
+
+.quiz-builder-option-row .quiz-builder-radio {
+  width: 1.25rem;
+  height: 1.25rem;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.quiz-builder-option-row .quiz-opt-key-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+  color: var(--text-main);
+  font-weight: 800;
+  font-size: 0.85rem;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.quiz-builder-option-row .quiz-opt-input {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.875rem;
+  padding: 0.45rem 0.75rem;
+  height: 38px;
+}
+
+.quiz-builder-option-row .btn-opt-del {
+  flex-shrink: 0;
+  padding: 0.4rem 0.6rem;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}

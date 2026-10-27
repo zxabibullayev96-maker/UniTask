@@ -719,7 +719,8 @@ function synthesizeSubmissionReport({
       if (ans.is_correct === 1) {
         closedEarned += qPts;
         totalEarned += qPts;
-        wellUnderstood.push(`#${idx + 1}-yopiq test: "${q.question_text.slice(0, 45)}..." to'g'ri yechildi`);
+        const qTextPreview = (q.question_text || '').slice(0, 45);
+        wellUnderstood.push(`#${idx + 1}-yopiq test: "${qTextPreview}..." to'g'ri yechildi`);
       } else {
         missingConcepts.push(`#${idx + 1}-yopiq test: noto'g'ri javob tanlandi`);
         commonMistakes.push(`Savol #${idx + 1}: tanlangan variant xato`);
@@ -778,7 +779,7 @@ function synthesizeSubmissionReport({
 
   if (missingConcepts.length > 0) {
     recommendations.push(`O'zlashtirilmagan mavzular bo'yicha nazariy ma'ruza matnini qayta o'qib chiqing.`);
-    focusTopics.push(assignment.subject ? `${assignment.subject} fanining tayanch mavzulari` : "Asosiy nazariya");
+    focusTopics.push((assignment && assignment.subject) ? `${assignment.subject} fanining tayanch mavzulari` : "Asosiy nazariya");
   }
   if (closedEarned < closedTotal) {
     recommendations.push("Mavzu bo'yicha test savollarini takroriy ishlab, tushunchalarni mustahkamlang.");
