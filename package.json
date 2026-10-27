@@ -6,8 +6,12 @@
   "scripts": {
     "start": "node server/server.js",
     "dev": "node --watch server/server.js",
-    "seed": "node server/config/seed.js",
-    "test": "node test_stage6_audit.js"
+    "test": "node test_stage6_audit.js",
+    "backup": "node scripts/backup.js",
+    "restore": "node scripts/restore.js",
+    "migrate:status": "node scripts/migrate.js status",
+    "migrate:export": "node scripts/migrate.js export",
+    "migrate:import": "node scripts/migrate.js import"
   },
   "keywords": ["edtech", "ai", "openai", "grading", "education"],
   "author": "UniTask Team",

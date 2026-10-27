@@ -1,38 +1,11 @@
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
+const { initDbAdapter } = require('./dbAdapter');
 
-const dbPath = path.resolve(__dirname, '../../unitask.db');
-const db = new sqlite3.Database(dbPath);
-
-// Helper promisified wrappers for sqlite3
-db.runAsync = function (sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function (err) {
-      if (err) return reject(err);
-      resolve({ lastID: this.lastID, changes: this.changes });
-    });
-  });
-};
-
-db.getAsync = function (sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) return reject(err);
-      resolve(row);
-    });
-  });
-};
-
-db.allAsync = function (sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) return reject(err);
-      resolve(rows || []);
-    });
-  });
-};
+// Universal Database Adapter (SQLite yoki Turso / LibSQL)
+const db = initDbAdapter();
+const dbPath = db.dbPath || path.resolve(__dirname, '../../unitask.db');
 
 // Initialize tables and seed initial data
 async function initDatabase() {
@@ -461,5 +434,6 @@ Faollashtirish funksiyasi juda zarur, chunki u neyron tarmog'iga nochiziqlilikni
 
 module.exports = {
   db,
-  initDatabase
+  initDatabase,
+  dbPath
 };

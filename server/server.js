@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { initDatabase } = require('./config/database');
+const { initDatabase, db, dbPath } = require('./config/database');
 
 const authRoutes = require('./routes/authRoutes');
 const groupRoutes = require('./routes/groupRoutes');
@@ -43,9 +43,25 @@ app.use((req, res, next) => {
 // O'quv materiallari statik tarzda taqdim etiladi
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// Tizim holati (Health check & AI status)
-app.get('/api/system-status', (req, res) => {
+// Tizim holati (Health check, AI status & Database audit)
+app.get('/api/system-status', async (req, res) => {
   const hasOpenAiKey = Boolean(process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.startsWith('sk-'));
+  
+  let userCount = 0;
+  let dbStatus = 'disconnected';
+  try {
+    const row = await db.getAsync('SELECT COUNT(*) as count FROM users');
+    userCount = row ? row.count : 0;
+    dbStatus = 'connected';
+  } catch (dbErr) {
+    dbStatus = 'error: ' + dbErr.message;
+  }
+
+  const clientType = db.clientType || 'sqlite';
+  const storageMode = clientType === 'turso' 
+    ? 'cloud_serverless_turso' 
+    : (process.env.DB_PATH ? 'persistent_configured' : 'ephemeral_local');
+
   res.json({
     success: true,
     platform: 'UniTask AI',
@@ -53,6 +69,13 @@ app.get('/api/system-status', (req, res) => {
     aiStatus: hasOpenAiKey ? 'OpenAI GPT-4o-mini faol' : 'Ichki Semantik Tahlil Rejimi (Standby)',
     hasOpenAiKey,
     model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+    database: {
+      status: dbStatus,
+      clientType,
+      userCount,
+      storageMode,
+      target: clientType === 'turso' ? 'Turso Cloud LibSQL' : path.basename(dbPath)
+    },
     time: new Date().toISOString()
   });
 });
